@@ -15,7 +15,7 @@ setuptools.setup(
     ],
     install_requires=[
         "bkh_pytorch_utils>=0.3.8",
-        "torchextractor>=3.0.0",
+        "torchextractor>=0.3.0",
     ],
     python_requires='>=3.8',
 )
