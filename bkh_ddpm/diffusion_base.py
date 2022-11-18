@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 
 from .utils.diffusion import get_named_beta_schedule
-from losses import normal_kl, discretized_gaussian_log_likelihood
-from nn import mean_flat
+from .losses import normal_kl, discretized_gaussian_log_likelihood
+from .nn import mean_flat
 
 import numpy as np
 
