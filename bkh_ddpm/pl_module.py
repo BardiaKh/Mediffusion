@@ -244,7 +244,7 @@ class DiffusionPLModule(bpu.BKhModule):
             self.logger.log_image(key="validation samples", images=imgs_to_log)
 
     @torch.no_grad()
-    def predict(self,imgs, model_kwargs=None, classifier_cond_scale=None, generator=None):            
+    def predict(self,imgs, model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None):            
         batch_size = imgs.shape[0]
         imgs = imgs.to(device=self.device, dtype=self.dtype)
         if model_kwargs is None:
@@ -254,7 +254,11 @@ class DiffusionPLModule(bpu.BKhModule):
             if model_kwargs[key] is not None:
                 model_kwargs[key] = model_kwargs[key].to(device=self.device, dtype=self.dtype)
             
-        indices = list(range(self.inference_diffusion.num_timesteps))[::-1]
+        if start_denoise_step is None:
+            indices = list(range(self.inference_diffusion.num_timesteps))[::-1]
+        else:
+            indices = list(range(start_denoise_step))[::-1]
+
         if self.inference_protocol == "DDPM":
             sample_fn = self.inference_diffusion.p_sample
             get_t = lambda i: self.timestep_map.gather(-1, torch.tensor([i]).long())
