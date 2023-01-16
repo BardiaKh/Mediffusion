@@ -1,7 +1,7 @@
 from .diffusion_base import GaussianDiffusionBase, SpacedDiffusion, ModelMeanType, ModelVarType, LossType
 import pytorch_lightning as pl
 from .utils.diffusion import get_named_beta_schedule, space_timesteps, UniformSampler
-from unet import UNetModel, SuperResModel
+from .unet import UNetModel, SuperResModel
 import torch
 import numpy as np
 import yaml
