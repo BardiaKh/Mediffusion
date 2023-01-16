@@ -238,7 +238,7 @@ class GaussianDiffusionBase(nn.Module):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     # MODEL FORWARD PASS
-    def p_mean_variance(self, model, x, t, clip_denoised=True, denoised_fn=None, cond_scale=0, model_kwargs=None):
+    def p_mean_variance(self, model, x, t, clip_denoised=True, denoised_fn=None, cond_scale=None, model_kwargs=None):
         """
         Apply the model to get p(x_{t-1} | x_t), as well as a prediction of
         the initial x, x_0.
@@ -264,9 +264,9 @@ class GaussianDiffusionBase(nn.Module):
         B, C = x.shape[:2]
         assert t.shape == (B,)
 
-        if cond_scale==0:
+        if cond_scale is None: # During training
             model_output = model(x, self._scale_timesteps(t), **model_kwargs)
-        else:
+        else: # During sampling (inference)
             model_output = model.forward_with_cond_scale(x, self._scale_timesteps(t), cond_scale=cond_scale, **model_kwargs)
 
         if self.model_var_type in [ModelVarType.LEARNED, ModelVarType.LEARNED_RANGE]:

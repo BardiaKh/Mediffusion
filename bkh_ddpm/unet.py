@@ -640,7 +640,7 @@ class UNetModel(nn.Module):
             zero_module(conv_nd(dims, input_ch, out_channels, 3, padding=1)),
         )
 
-    def forward(self, x, timesteps, cls=None, drop_cls_prob=None):
+    def forward(self, x, timesteps, cls=None, cls_embed=None, drop_cls_prob=None):
         """
         Apply the model to an input batch.
 
@@ -659,17 +659,18 @@ class UNetModel(nn.Module):
         if self.num_classes > 0:
             assert cls.shape == (x.shape[0],self.num_classes)
             drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
-            cls = self.class_embed(cls)
+            if cls_embed is None:
+                cls_embed = self.class_embed(cls)
             if drop_cls_prob > 0:
                 cls_mask = self._prob_mask_like(x.shape[0], 1-drop_cls_prob, cls.device).unsqueeze(-1)
-                cls = torch.where(
+                cls_embed = torch.where(
                     cls_mask,
-                    cls,
+                    cls_embed,
                     self.null_cls_embed.to(cls.dtype)
                 )
 
 
-            emb = emb + cls # TO COCNCAT
+            emb = emb + cls_embed
 
         h = x
         hs = []
@@ -687,15 +688,35 @@ class UNetModel(nn.Module):
         return h
 
     def forward_with_cond_scale(self, x, timesteps, cls=None, cond_scale=0, **kwargs):
+        """model forward with conditional scale (used in inference)
+
+        Args:
+            x: input
+            timesteps: timesteps
+            cls: class vector. Defaults to None.
+            cond_scale (int, optional): conditioning scale. Defaults to 0.
+
+        Returns:
+            _type_: _description_
+        """
         logits = self(x, timesteps, cls, drop_cls_prob=0, **kwargs)
         if cond_scale == 0:
             return logits
 
         null_logits = self(x, timesteps, cls, drop_cls_prob=1, **kwargs)
         return logits + (logits - null_logits) * cond_scale
-        # return null_logits + cond_scale*(logits - null_logits)/torch.norm(logits - null_logits)*torch.norm(null_logits)
 
     def _prob_mask_like(self, shape, prob, device):
+        """generate a mask with prob
+        
+        Args:
+            shape: shape of the mask
+            prob: probability of the mask
+            device: device of the mask
+
+        Returns:
+            mask: probablity mask (1: keep, 0: drop)
+        """
         if prob == 1:
             return torch.ones(shape, device = device, dtype = torch.bool)
         elif prob == 0:
