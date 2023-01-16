@@ -640,7 +640,7 @@ class UNetModel(nn.Module):
             zero_module(conv_nd(dims, input_ch, out_channels, 3, padding=1)),
         )
 
-    def forward(self, x, timesteps, cls=None, cls_embed=None, drop_cls_prob=None):
+    def forward(self, x, timesteps, cls=None, drop_cls_prob=None, cls_embed=None):
         """
         Apply the model to an input batch.
 
@@ -699,6 +699,7 @@ class UNetModel(nn.Module):
         Returns:
             _type_: _description_
         """
+        print("kwargs: ", kwargs)
         logits = self(x, timesteps, cls, drop_cls_prob=0, **kwargs)
         if cond_scale == 0:
             return logits
@@ -723,7 +724,6 @@ class UNetModel(nn.Module):
             return torch.zeros(shape, device = device, dtype = torch.bool)
         else:
             return torch.zeros(shape, device = device).float().uniform_(0, 1) < prob
-
 
 class SuperResModel(UNetModel):
     """
