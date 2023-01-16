@@ -141,7 +141,7 @@ class DiffusionPLModule(bpu.BKhModule):
 
     @torch.no_grad()
     def get_cls_embedding(self, cls):
-        return self.model.cls_embed(cls)
+        return self.model.class_embed(cls)
 
     @torch.no_grad()
     def forward_features(self, x_start, noise=None, return_dict=True):
