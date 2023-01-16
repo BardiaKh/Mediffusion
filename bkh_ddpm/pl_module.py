@@ -49,21 +49,21 @@ class DiffusionPLModule(bpu.BKhModule):
         
         self.diffusion = GaussianDiffusionBase(final_betas, model_mean_type, model_var_type, loss_type)
 
-        model_config = self.get_model_config(model_config_path, input_size)
+        self.model_config = self.get_model_config(model_config_path, input_size)
 
-        self.model_input_shape = (model_config["in_channels"], *[model_config["image_size"]]*model_config['dims']) # excluding batch dimension
+        self.model_input_shape = (self.model_config["in_channels"], *[self.model_config["image_size"]]*self.model_config['dims']) # excluding batch dimension
 
         if self.task_type == "unsupervised":
-            self.model = UNetModel(**model_config)
+            self.model = UNetModel(**self.model_config)
         elif self.task_type.startswith("superres"):
-            self.model = SuperResModel(**model_config)
+            self.model = SuperResModel(**self.model_config)
 
         if timestep_scheduler_name == "uniform":
             self.timestep_scheduler = UniformSampler(self.diffusion.num_timesteps, self.timestep_map)
         else:
             raise NotImplemented("Only uniform timestep scheduler is supported for now")
 
-        self.class_conditioned = False if model_config['num_classes']==0 else True
+        self.class_conditioned = False if self.model_config['num_classes']==0 else True
 
         if self.inference_protocol == "DDPM":
             self.inference_diffusion = self.diffusion

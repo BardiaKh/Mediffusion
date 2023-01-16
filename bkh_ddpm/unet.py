@@ -697,9 +697,8 @@ class UNetModel(nn.Module):
             cond_scale (int, optional): conditioning scale. Defaults to 0.
 
         Returns:
-            _type_: _description_
+            _type_: model outputs after conditioning
         """
-        print("kwargs: ", kwargs)
         logits = self(x, timesteps, cls, drop_cls_prob=0, **kwargs)
         if cond_scale == 0:
             return logits
