@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from nn import (
+from .nn import (
     checkpoint,
     conv_nd,
     linear,
