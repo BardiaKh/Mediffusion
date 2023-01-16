@@ -139,6 +139,9 @@ class DiffusionPLModule(bpu.BKhModule):
         self.feature_extractor = tx.Extractor(self.model, block_names)
         self.feature_extractor_steps = sorted(steps)
 
+    @torch.no_grad()
+    def get_cls_embedding(self, cls):
+        return self.model.cls_embed(cls)
 
     @torch.no_grad()
     def forward_features(self, x_start, noise=None, return_dict=True):
@@ -175,7 +178,6 @@ class DiffusionPLModule(bpu.BKhModule):
             return final_feature_tensor
 
     def training_step(self, batch, batch_idx):
-        # ported from train_losses in diffusion.py
         x_start = batch["img"]
         cls = batch["cls"] if self.class_conditioned else None
         batch_size = x_start.shape[0]
