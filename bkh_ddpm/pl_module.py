@@ -310,5 +310,5 @@ class DiffusionPLModule(bpu.BKhModule):
             self.set_total_steps(steps=len(self.train_dataloader())*max_epochs//grad_acc)
 
         params = bpu.add_weight_decay(self.model,5e-4)
-        optimizer = torch.optim.AdamW(params, lr=self.lr) 
+        optimizer = bpu.Lion(params, lr=self.lr) 
         return optimizer

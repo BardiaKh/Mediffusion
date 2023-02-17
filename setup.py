@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="bkh_ddpm",
-    version="0.0.4",
+    version="0.0.5",
     author="Bardia Khosravi",
     author_email="bardiakhosravi95@gmail.com",
     description="Personal take on DDPMs",
@@ -14,7 +14,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        "bkh_pytorch_utils>=0.3.8",
+        "bkh_pytorch_utils>=0.5.0",
         "torchextractor>=0.3.0",
     ],
     python_requires='>=3.8',
