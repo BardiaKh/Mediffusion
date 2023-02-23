@@ -26,6 +26,7 @@ class DiffusionPLModule(bpu.BKhModule):
         classifier_cond_scale=0,
         inference_protocol="DDPM",
         input_size=256,
+        optimizer=torch.optim.AdamW,
         collate_fn=None, 
         val_collate_fn=None,
         train_sampler=None,val_sampler=None, ddp_sampler=False, 
@@ -40,6 +41,7 @@ class DiffusionPLModule(bpu.BKhModule):
         self.model_mean_type = model_mean_type
         self.model_var_type = model_var_type
         self.lr = lr
+        self.optimizer_class = optimizer
 
         self.initial_betas = get_named_beta_schedule(beta_schedule_name,num_diffusion_timesteps, beta_start, beta_end, cosine_s)
         if timestep_respacing=="":
@@ -221,7 +223,7 @@ class DiffusionPLModule(bpu.BKhModule):
                 img = img.squeeze(0).squeeze(0).numpy()
                 img = (img + 1) * 127.5
                 img = img.clip(0, 255).astype(np.uint8)
-                # imsave(f"/research/projects/m253231_Bardia/Current/04__Synthethic_Pelvis_Dataset/outputs/diffusion/imgs/{self.device}_{i}.png", img)
+                img = img.transpose(1,0)
                 imgs_to_log.append(img)
             self.logger.log_image(key="low-res samples", images=imgs_to_log)
 
@@ -230,7 +232,7 @@ class DiffusionPLModule(bpu.BKhModule):
         imgs_to_log = []
         for i,img in enumerate(imgs):
             img = img.squeeze(0).squeeze(0).numpy()
-            # imsave(f"/research/projects/m253231_Bardia/Current/04__Synthethic_Pelvis_Dataset/outputs/diffusion/superres/{self.device}_{i}.png", img)
+            img = img.transpose(1,0)
             imgs_to_log.append(img)
 
         if self.class_conditioned:
@@ -310,5 +312,5 @@ class DiffusionPLModule(bpu.BKhModule):
             self.set_total_steps(steps=len(self.train_dataloader())*max_epochs//grad_acc)
 
         params = bpu.add_weight_decay(self.model,5e-4)
-        optimizer = bpu.Lion(params, lr=self.lr) 
+        optimizer = self.optimizer_class(params, lr=self.lr) 
         return optimizer
