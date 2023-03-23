@@ -29,11 +29,11 @@ class DiffusionPLModule(bpu.BKhModule):
         optimizer=torch.optim.AdamW,
         collate_fn=None, 
         val_collate_fn=None,
-        train_sampler=None,val_sampler=None, ddp_sampler=False, 
+        train_sampler=None,val_sampler=None, 
         train_ds=None, val_ds=None, dl_workers=-1,
         batch_size=16, val_batch_size=None, lr=1e-4,
     ):
-        super().__init__(collate_fn=collate_fn, val_collate_fn=val_collate_fn, train_sampler=train_sampler, val_sampler=val_sampler, ddp_sampler=ddp_sampler, train_ds=train_ds, val_ds=val_ds, dl_workers=dl_workers, batch_size=batch_size, val_batch_size=val_batch_size)
+        super().__init__(collate_fn=collate_fn, val_collate_fn=val_collate_fn, train_sampler=train_sampler, val_sampler=val_sampler, train_ds=train_ds, val_ds=val_ds, dl_workers=dl_workers, batch_size=batch_size, val_batch_size=val_batch_size)
         self.task_type = task_type
         self.loss_type = loss_type
         self.classifier_cond_scale = classifier_cond_scale

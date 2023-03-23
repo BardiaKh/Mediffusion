@@ -1,4 +1,4 @@
 # the default package dependencies
 
-bkh_pytorch_utils>=0.3.8
+bkh_pytorch_utils>=0.6.0
 torchextractor>=0.3.0
