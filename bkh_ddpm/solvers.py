@@ -66,7 +66,7 @@ class DDPMSolver(GaussianDiffusionBase):
         batch_size = imgs.shape[0]
 
         if start_denoise_step is None:
-            indices = list(range(self.inference_diffusion.num_timesteps))[::-1]
+            indices = list(range(self.num_timesteps))[::-1]
         else:
             indices = list(range(start_denoise_step))[::-1]
 
@@ -243,7 +243,7 @@ class DDIMSolver(GaussianDiffusionBase):
         batch_size = imgs.shape[0]
 
         if start_denoise_step is None:
-            indices = list(range(self.inference_diffusion.num_timesteps))[::-1]
+            indices = list(range(self.num_timesteps))[::-1]
         else:
             indices = list(range(start_denoise_step))[::-1]
 
