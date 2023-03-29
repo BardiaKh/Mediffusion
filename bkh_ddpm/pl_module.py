@@ -254,11 +254,8 @@ class DiffusionPLModule(bpu.BKhModule):
             init_noise,
             start_denoise_step=start_denoise_step,
             cond_scale=classifier_cond_scale,
-            clip_denoised=True,
-            denoised_fn=None,
-            cond_fn=None,
-            model_kwargs=None, 
-            generator=None
+            model_kwargs=model_kwargs, 
+            generator=generator
         )
         
         imgs = imgs.split(1, dim=0)                 # [(1, C, H, W, (D))] * B

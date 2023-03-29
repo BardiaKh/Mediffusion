@@ -5,7 +5,26 @@ from .diffusion_base import GaussianDiffusionBase
 from .utils.diffusion import get_respaced_betas
 from .utils.solvers import extract_diffusion_args
 
-class DDPMSolver(GaussianDiffusionBase):
+class SolverBase(GaussianDiffusionBase):
+    def __init__(self, **diffusion_params):
+        super().__init__(**diffusion_params)
+
+    def _get_t(self, i):
+        raise NotImplementedError
+
+    def _get_model_device(self, model):
+        return next(model.parameters()).device
+    
+    def _get_model_dtype(self, model):
+        return next(model.parameters()).dtype
+
+    def _sample_fn(*args,**kwargs):
+        raise NotImplementedError
+
+    def sample(*args,**kwargs):
+        raise NotImplementedError    
+    
+class DDPMSolver(SolverBase):
     def __init__(self, diffusion):
         kwargs = extract_diffusion_args(diffusion)
         super().__init__(**kwargs)
@@ -24,7 +43,6 @@ class DDPMSolver(GaussianDiffusionBase):
         cond_fn=None,
         model_kwargs=None,
         generator=None,
-        **kwargs, #just for compatibility with other methods
     ):
         """
         Sample x_{t-1} from the model at the given timestep.
@@ -63,6 +81,10 @@ class DDPMSolver(GaussianDiffusionBase):
         return {"sample": sample, "pred_xstart": out["pred_xstart"]}
     
     def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+        device = self._get_model_device(model)
+        dtype = self._get_model_dtype(model)
+        
+        imgs = imgs.to(device=device, dtype=dtype)
         batch_size = imgs.shape[0]
 
         if start_denoise_step is None:
@@ -70,7 +92,7 @@ class DDPMSolver(GaussianDiffusionBase):
         else:
             indices = list(range(start_denoise_step))[::-1]
 
-        for i in tqdm(indices, desc="Creating Fake Images"):
+        for i in tqdm(indices, desc="DDPM Sampling"):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=self.device)
             out = self._sample_fn(
@@ -88,7 +110,7 @@ class DDPMSolver(GaussianDiffusionBase):
 
         return imgs
     
-class DDIMSolver(GaussianDiffusionBase):
+class DDIMSolver(SolverBase):
     """
     A diffusion process which can skip steps in a base diffusion process.
     :param use_timesteps: a collection (sequence or set) of timesteps from the
@@ -157,7 +179,6 @@ class DDIMSolver(GaussianDiffusionBase):
         model_kwargs=None,
         generator=None,
         eta=0.0,
-        **kwargs, #just for compatibility with other methods
     ):
         """
         Sample x_{t-1} from the model using DDIM.
@@ -209,7 +230,6 @@ class DDIMSolver(GaussianDiffusionBase):
         cond_fn=None,
         model_kwargs=None,
         eta=0.0,
-        **kwargs, #just for compatibility with other methods
     ):
         """
         Sample x_{t+1} from the model using DDIM reverse ODE.
@@ -240,6 +260,10 @@ class DDIMSolver(GaussianDiffusionBase):
         return {"sample": mean_pred, "pred_xstart": out["pred_xstart"]}
 
     def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+        device = self._get_model_device(model)
+        dtype = self._get_model_dtype(model)
+        
+        imgs = imgs.to(device=device, dtype=dtype)
         batch_size = imgs.shape[0]
 
         if start_denoise_step is None:
@@ -247,9 +271,9 @@ class DDIMSolver(GaussianDiffusionBase):
         else:
             indices = list(range(start_denoise_step))[::-1]
 
-        for i in tqdm(indices, desc="Creating Fake Images"):
-            t = self._get_t(i)
-            ts = t.expand(batch_size).to(device=self.device)
+        for i in tqdm(indices, desc="DDIM Sampling"):
+            t = self._get_t(i)            
+            ts = t.expand(batch_size).to(device=device)
             out = self._sample_fn(
                 model,
                 imgs,
@@ -259,15 +283,20 @@ class DDIMSolver(GaussianDiffusionBase):
                 denoised_fn=denoised_fn,
                 cond_fn=cond_fn,
                 model_kwargs=model_kwargs,
-                generator = generator,
             )
-            imgs = out["sample"].detach().to(dtype=imgs.dtype)
+            imgs = out["sample"].detach().to(dtype=dtype)
 
         return imgs
     
-    def reverse_sample(self, model, imgs, indices, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+    def reverse_sample(self, model, imgs, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+        device = self._get_model_device(model)
+        dtype = self._get_model_dtype(model)
+        
+        imgs = imgs.to(device=device, dtype=dtype)
         batch_size = imgs.shape[0]
-        for i in tqdm(indices, desc="Creating Fake Images"):
+
+        indices = list(range(self.num_timesteps))
+        for i in tqdm(indices, desc="Creating DDIM Noise"):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=self.device)
             out = self._reverse_sample_fn(
@@ -279,7 +308,6 @@ class DDIMSolver(GaussianDiffusionBase):
                 denoised_fn=denoised_fn,
                 cond_fn=cond_fn,
                 model_kwargs=model_kwargs,
-                generator = generator,
             )
             imgs = out["sample"].detach().to(dtype=imgs.dtype)
 
