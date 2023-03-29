@@ -37,6 +37,24 @@ def get_named_beta_schedule(schedule_name, num_diffusion_timesteps, beta_start=1
 
     return betas
 
+def get_respaced_betas(initial_betas, timestep_respacing):
+        use_timesteps = space_timesteps(len(initial_betas), timestep_respacing)
+        alphas = 1.0 - initial_betas
+        alphas_cumprod = torch.cumprod(alphas, axis=0)
+
+        last_alpha_cumprod = 1.0
+        new_betas = []
+        timestep_map = []
+        for i, alpha_cumprod in enumerate(alphas_cumprod):
+            if i in use_timesteps:
+                new_betas.append(1 - alpha_cumprod / last_alpha_cumprod)
+                last_alpha_cumprod = alpha_cumprod
+                timestep_map.append(i)
+
+        new_betas = torch.tensor(new_betas)
+        timestep_map = torch.tensor(timestep_map)
+        return new_betas, timestep_map
+
 def space_timesteps(num_timesteps, section_counts):
     """
     Create a list of timesteps to use from an original diffusion process,

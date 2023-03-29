@@ -1,5 +1,6 @@
 from .diffusion_base import GaussianDiffusionBase, SpacedDiffusion, ModelMeanType, ModelVarType, LossType
-from .utils.diffusion import get_named_beta_schedule, space_timesteps, UniformSampler
+from .solvers import DDPMSolver, DDIMSolver
+from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, UniformSampler
 from .unet import UNetModel, SuperResModel
 import torch
 import numpy as np
@@ -47,7 +48,7 @@ class DiffusionPLModule(bpu.BKhModule):
         if timestep_respacing=="":
             timestep_respacing = [num_diffusion_timesteps]
         
-        final_betas, self.timestep_map  = self.get_respaced_betas(self.initial_betas, timestep_respacing)
+        final_betas, self.timestep_map  = get_respaced_betas(self.initial_betas, timestep_respacing)
         
         self.diffusion = GaussianDiffusionBase(final_betas, model_mean_type, model_var_type, loss_type)
 
@@ -67,36 +68,10 @@ class DiffusionPLModule(bpu.BKhModule):
 
         self.class_conditioned = False if self.model_config['num_classes']==0 else True
 
-        if self.inference_protocol == "DDPM":
-            self.inference_diffusion = self.diffusion
-        elif self.inference_protocol.startswith("DDIM"):
-            _, timestep_map = self.get_respaced_betas(self.initial_betas, self.inference_protocol)
-            self.inference_diffusion = SpacedDiffusion(use_timesteps=timestep_map, betas=self.initial_betas, model_mean_type=self.model_mean_type, model_var_type=self.model_var_type, loss_type=self.loss_type, rescale_timesteps=None)
-        else:
-            raise ValueError(f"Unknown inference protocol {self.inference_protocol}, only DDPM, DDIM are supported")
-
-        # self.save_hyperparameters()
+        self.save_hyperparameters()
         
     def forward(self, x, t, **kwargs):
         return self.model(x, t, **kwargs)
-
-    def get_respaced_betas(self, initial_betas, timestep_respacing):
-        use_timesteps = space_timesteps(len(initial_betas), timestep_respacing)
-        alphas = 1.0 - initial_betas
-        alphas_cumprod = torch.cumprod(alphas, axis=0)
-
-        last_alpha_cumprod = 1.0
-        new_betas = []
-        timestep_map = []
-        for i, alpha_cumprod in enumerate(alphas_cumprod):
-            if i in use_timesteps:
-                new_betas.append(1 - alpha_cumprod / last_alpha_cumprod)
-                last_alpha_cumprod = alpha_cumprod
-                timestep_map.append(i)
-
-        new_betas = torch.tensor(new_betas)
-        timestep_map = torch.tensor(timestep_map)
-        return new_betas, timestep_map
 
     def get_model_config(self, config_path, input_size):
         model_config = yaml.safe_load(open(config_path, "r"))
@@ -206,7 +181,7 @@ class DiffusionPLModule(bpu.BKhModule):
 
         assert len(real_imgs.shape)==4 or (len(real_imgs.shape)==5 and batch_size==1), f"expected 4D (with any batch size) or 5D tensor(with batch size 1), got {real_imgs.shape}"
 
-        imgs = torch.randn(batch_size,*(self.model_input_shape), device=self.device, dtype=real_imgs.dtype)
+        init_noise = torch.randn(batch_size,*(self.model_input_shape), device=self.device, dtype=real_imgs.dtype)
 
         model_kwargs = {"cls": cls}
         if self.task_type.startswith("superres"):
@@ -214,24 +189,35 @@ class DiffusionPLModule(bpu.BKhModule):
             model_kwargs["low_res"] = low_res_img
 
             imgs_to_log = []
-            if len(low_res_img.shape)==4:
+            if self.model_config['dims']==2:
                 low_res_imgs_tuple = low_res_img.cpu().split(1, dim=0)
-            elif len(imgs.shape)==5:
-                low_res_imgs_tuple = low_res_img[0].cpu().split(1, dim=-1)
+                low_res_imgs_tuple = [img.squeeze(0) for img in low_res_imgs_tuple]
+            elif self.model_config['dims']==3:
+                low_res_img = low_res_img.permute(0,4,1,2,3)                # (B, D, C, H, W)
+                low_res_img = low_res_img.view(-1, low_res_img.shape[2:])   # (B*D, C, H, W)
+                low_res_img = low_res_img.split(1, dim=0)                   # [(1, C, H, W)] * B*D
+                low_res_img = [img.squeeze(0) for img in low_res_img]       # [(C, H, W)] * B*D
             
             for i,img in enumerate(low_res_imgs_tuple):
-                img = img.squeeze(0).squeeze(0).numpy()
+                img = img.squeeze(0).numpy()
                 img = (img + 1) * 127.5
                 img = img.clip(0, 255).astype(np.uint8)
                 img = img.transpose(1,0)
                 imgs_to_log.append(img)
             self.logger.log_image(key="low-res samples", images=imgs_to_log)
 
-        imgs = self.predict(imgs, model_kwargs=model_kwargs)
+        imgs = self.predict(init_noise, inference_porotocol=self.inference_porotocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
 
+        if self.model_config['dims']==3:
+            imgs = torch.stack(imgs, dim=0)         # (B, C, H, W, D)
+            imgs = imgs.permute(0,4,1,2,3)          # (B, D, C, H, W)
+            imgs = imgs.view(-1, imgs.shape[2:])    # (B*D, C, H, W)
+            imgs = imgs.split(1, dim=0)             # [(1, C, H, W)] * B*D
+            imgs = [img.squeeze(0) for img in imgs] # [(C, H, W)] * B*D
+        
         imgs_to_log = []
         for i,img in enumerate(imgs):
-            img = img.squeeze(0).squeeze(0).numpy()
+            img = img.squeeze(0).numpy()
             img = img.transpose(1,0)
             imgs_to_log.append(img)
 
@@ -246,8 +232,7 @@ class DiffusionPLModule(bpu.BKhModule):
             self.logger.log_image(key="validation samples", images=imgs_to_log)
 
     @torch.no_grad()
-    def predict(self,imgs, model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None):            
-        batch_size = imgs.shape[0]
+    def predict(self, init_noise, inference_porotocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None):            
         imgs = imgs.to(device=self.device, dtype=self.dtype)
         if model_kwargs is None:
             model_kwargs = {"cls": None}
@@ -255,47 +240,29 @@ class DiffusionPLModule(bpu.BKhModule):
         for key in model_kwargs:
             if model_kwargs[key] is not None:
                 model_kwargs[key] = model_kwargs[key].to(device=self.device, dtype=self.dtype)
-            
-        if start_denoise_step is None:
-            indices = list(range(self.inference_diffusion.num_timesteps))[::-1]
-        else:
-            indices = list(range(start_denoise_step))[::-1]
-
-        if self.inference_protocol == "DDPM":
-            sample_fn = self.inference_diffusion.p_sample
-            get_t = lambda i: self.timestep_map.gather(-1, torch.tensor([i]).long())
-        elif self.inference_protocol.startswith("DDIM"):
-            get_t = lambda i: torch.tensor([i]).long()
-            sample_fn = self.inference_diffusion.ddim_sample
+        
+        if inference_porotocol == "DDPM":
+            solver = DDPMSolver(self.diffusion)
+        elif inference_porotocol.startswith("DDIM"):
+            num_steps = int(inference_porotocol[:4])
+            solver = DDPMSolver(self.diffusion, num_steps=num_steps)
         else:
             raise ValueError(f"Unknown inference protocol {self.inference_protocol}, only DDPM, DDIM are supported")
 
-        if classifier_cond_scale is None:
-            classifier_cond_scale = self.classifier_cond_scale
-
-        for i in tqdm(indices, desc="Creating Fake Images"):
-            t = get_t(i)
-            ts = t.expand(batch_size).to(device=self.device)
-            out = sample_fn(
-                self.model,
-                imgs,
-                ts,
-                cond_scale=classifier_cond_scale,
-                clip_denoised=True,
-                denoised_fn=None,
-                cond_fn=None,
-                model_kwargs=model_kwargs,
-                generator = generator,
-                eta=0.0,
-            )
-            imgs = out["sample"].detach().to(dtype=imgs.dtype)
+        imgs = solver.sample(
+            self.model,
+            init_noise,
+            start_denoise_step=start_denoise_step,
+            cond_scale=classifier_cond_scale,
+            clip_denoised=True,
+            denoised_fn=None,
+            cond_fn=None,
+            model_kwargs=None, 
+            generator=None
+        )
         
-        if len(imgs.shape)==4: #2D
-            imgs = imgs.split(1, dim=0)
-        elif len(imgs.shape)==5: #3D
-            imgs = imgs[0].split(1, dim=-1)
-
-        imgs = list(imgs)
+        imgs = imgs.split(1, dim=0)                 # [(1, C, H, W, (D))] * B
+        imgs = [img.squeeze(0) for img in imgs]     # [(C, H, W, (D))] * B
 
         for i in range(len(imgs)):
             img = imgs[i]
