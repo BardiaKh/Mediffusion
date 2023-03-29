@@ -206,7 +206,7 @@ class DiffusionPLModule(bpu.BKhModule):
                 imgs_to_log.append(img)
             self.logger.log_image(key="low-res samples", images=imgs_to_log)
 
-        imgs = self.predict(init_noise, inference_porotocol=self.inference_porotocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
+        imgs = self.predict(init_noise, inference_porotocol=self.inference_protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
 
         if self.model_config['dims']==3:
             imgs = torch.stack(imgs, dim=0)         # (B, C, H, W, D)
