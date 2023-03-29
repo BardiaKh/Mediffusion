@@ -244,7 +244,7 @@ class DiffusionPLModule(bpu.BKhModule):
         if inference_porotocol == "DDPM":
             solver = DDPMSolver(self.diffusion)
         elif inference_porotocol.startswith("DDIM"):
-            num_steps = int(inference_porotocol[:4])
+            num_steps = int(inference_porotocol[len("DDIM"):])
             solver = DDIMSolver(self.diffusion, num_steps=num_steps)
         else:
             raise ValueError(f"Unknown inference protocol {self.inference_protocol}, only DDPM, DDIM are supported")
