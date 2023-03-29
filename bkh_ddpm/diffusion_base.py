@@ -143,6 +143,16 @@ class GaussianDiffusionBase(torch.nn.Module):
         while len(out.shape) < len(broadcast_shape):
             out = out.unsqueeze(-1)
         return out.expand(broadcast_shape)
+    
+    def _extract_into_tensor_lerp(self, arr, timesteps, broadcast_shape):
+        timesteps = timesteps.float()
+        frac = timesteps.frac()
+        while len(frac.shape) < len(broadcast_shape):
+            frac = frac.unsqueeze(-1)
+        res_1 = self._extract_into_tensor(arr, timesteps.floor().long(), broadcast_shape)
+        res_2 = self._extract_into_tensor(arr, timesteps.ceil().long(), broadcast_shape)
+        return torch.lerp(res_1, res_2, frac)
+
 
     def q_sample(self, x_start, t, noise=None):
         """
@@ -191,8 +201,8 @@ class GaussianDiffusionBase(torch.nn.Module):
             self._extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t - \
             pred_xstart
         ) / self._extract_into_tensor(self.sqrt_recip_alphas_cumprod_minus_one, t, x_t.shape)
-
-    def _get_v(self, x_start, noise, t):
+    
+    def _get_v_target(self, x_start, noise, t):
         return (
             self._extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * noise - \
             self._extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * x_start
@@ -243,6 +253,18 @@ class GaussianDiffusionBase(torch.nn.Module):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     # MODEL FORWARD PASS
+    def _get_model_output(self, model, x, t, cond_scale=None, model_kwargs=None):
+        if model_kwargs is None:
+            model_kwargs = {}
+
+        if cond_scale is None: # During training
+            model_output = model(x, self._scale_timesteps(t), **model_kwargs)
+        else: # During sampling (inference)
+            model_output = model.forward_with_cond_scale(x, self._scale_timesteps(t), cond_scale=cond_scale, **model_kwargs)
+
+        return model_output
+
+
     def p_mean_variance(self, model, x, t, clip_denoised=True, denoised_fn=None, cond_scale=None, model_kwargs=None):
         """
         Apply the model to get p(x_{t-1} | x_t), as well as a prediction of
@@ -263,16 +285,11 @@ class GaussianDiffusionBase(torch.nn.Module):
                  - 'log_variance': the log of 'variance'.
                  - 'pred_xstart': the prediction for x_0.
         """
-        if model_kwargs is None:
-            model_kwargs = {}
 
         B, C = x.shape[:2]
         assert t.shape == (B,)
 
-        if cond_scale is None: # During training
-            model_output = model(x, self._scale_timesteps(t), **model_kwargs)
-        else: # During sampling (inference)
-            model_output = model.forward_with_cond_scale(x, self._scale_timesteps(t), cond_scale=cond_scale, **model_kwargs)
+        model_output = self._get_model_output(model, x, t, cond_scale=cond_scale, model_kwargs=model_kwargs)
 
         if self.model_var_type in [ModelVarType.LEARNED, ModelVarType.LEARNED_RANGE]:
             assert model_output.shape == (B, C * 2, *x.shape[2:])
@@ -407,7 +424,7 @@ class GaussianDiffusionBase(torch.nn.Module):
                 )[0],
                 ModelMeanType.START_X: x_start,
                 ModelMeanType.EPSILON: noise,
-                ModelMeanType.VELOCITY: self._get_v(
+                ModelMeanType.VELOCITY: self._get_v_target(
                     x_start=x_start, noise=noise, t=t
                 ),
             }[self.model_mean_type]

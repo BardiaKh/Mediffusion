@@ -80,6 +80,7 @@ class DDPMSolver(SolverBase):
         sample = out["mean"] + nonzero_mask * torch.exp(0.5 * out["log_variance"]) * noise
         return {"sample": sample, "pred_xstart": out["pred_xstart"]}
     
+    @torch.no_grad()
     def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
         device = self._get_model_device(model)
         dtype = self._get_model_dtype(model)
@@ -258,7 +259,8 @@ class DDIMSolver(SolverBase):
         mean_pred = out["pred_xstart"] * torch.sqrt(alpha_bar_next) + torch.sqrt(1 - alpha_bar_next) * eps
 
         return {"sample": mean_pred, "pred_xstart": out["pred_xstart"]}
-
+    
+    @torch.no_grad()
     def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
         device = self._get_model_device(model)
         dtype = self._get_model_dtype(model)
@@ -283,11 +285,13 @@ class DDIMSolver(SolverBase):
                 denoised_fn=denoised_fn,
                 cond_fn=cond_fn,
                 model_kwargs=model_kwargs,
+                generator=generator,
             )
             imgs = out["sample"].detach().to(dtype=dtype)
 
         return imgs
     
+    @torch.no_grad()
     def reverse_sample(self, model, imgs, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
         device = self._get_model_device(model)
         dtype = self._get_model_dtype(model)
@@ -313,6 +317,267 @@ class DDIMSolver(SolverBase):
 
         return imgs
 
+class PNMDSolver(SolverBase):
+    """
+    A diffusion process which can skip steps in a base diffusion process.
+    :param use_timesteps: a collection (sequence or set) of timesteps from the
+                          original diffusion process to retain.
+    :param kwargs: the kwargs to create the base diffusion process.
+    """
+
+    def __init__(self, diffusion, num_steps):
+        kwargs = extract_diffusion_args(diffusion)
+        base_diffusion = GaussianDiffusionBase(**kwargs)
+
+        _, self.use_timesteps = get_respaced_betas(base_diffusion.betas, f"DDIM{num_steps}")
+        self.timestep_map = []
+        self.original_num_steps = len(kwargs["betas"])
+
+        last_alpha_cumprod = 1.0
+        new_betas = []
+        for i, alpha_cumprod in enumerate(base_diffusion.alphas_cumprod):
+            if i in self.use_timesteps:
+                new_betas.append(1 - alpha_cumprod / last_alpha_cumprod)
+                last_alpha_cumprod = alpha_cumprod
+                self.timestep_map.append(i)
+                
+        kwargs["betas"] = torch.tensor(new_betas)
+        super().__init__(**kwargs)
+
+    def p_mean_variance(
+        self, model, *args, **kwargs
+    ):  # pylint: disable=signature-differs
+        return super().p_mean_variance(self._wrap_model(model), *args, **kwargs)
+
+    def training_losses(
+        self, model, *args, **kwargs
+    ):  # pylint: disable=signature-differs
+        return super().training_losses(self._wrap_model(model), *args, **kwargs)
+
+    def condition_mean(self, cond_fn, *args, **kwargs):
+        return super().condition_mean(self._wrap_model(cond_fn), *args, **kwargs)
+
+    def condition_score(self, cond_fn, *args, **kwargs):
+        return super().condition_score(self._wrap_model(cond_fn), *args, **kwargs)
+
+    def _wrap_model(self, model):
+        if isinstance(model, _WrappedModel):
+            return model
+        return _WrappedModel(
+            model, self.timestep_map, self.rescale_timesteps, self.original_num_steps
+        )
+
+    def _scale_timesteps(self, t):
+        # Scaling is done by the wrapped model.
+        return t
+    
+    def _get_t(self, i):
+        return torch.tensor([i]).long()
+    
+    def _get_eps(
+        self,
+        model,
+        x,
+        t,
+        cond_scale=0,
+        clip_denoised=True,
+        denoised_fn=None,
+        cond_fn=None,
+        model_kwargs=None,
+    ):
+        out = self.p_mean_variance(
+            model,
+            x,
+            t,
+            cond_scale=cond_scale,
+            clip_denoised=clip_denoised,
+            denoised_fn=denoised_fn,
+            model_kwargs=model_kwargs,
+        )
+        if cond_fn is not None:
+            out = self.condition_score(cond_fn, out, x, t, model_kwargs=model_kwargs)
+
+        # Usually our model outputs epsilon, but we re-derive it
+        # in case we used x_start or x_prev prediction.
+        eps = self._predict_eps_from_xstart(x, t, out["pred_xstart"])
+
+        return eps
+    
+    def _eps_to_pred_xstart(
+        self,
+        x,
+        eps,
+        t,
+    ):
+        alpha_bar = self._extract_into_tensor_lerp(self.alphas_cumprod, t, x.shape)
+        return (x - eps * torch.sqrt(1 - alpha_bar)) / torch.sqrt(alpha_bar)
+
+    def _pndm_transfer(
+        self,
+        x,
+        eps,
+        t_1,
+        t_2,
+    ):
+        pred_xstart = self._eps_to_pred_xstart(x, eps, t_1)
+        alpha_bar_prev = self._extract_into_tensor_lerp(self.alphas_cumprod, t_2, x.shape)
+        return pred_xstart * torch.sqrt(alpha_bar_prev) + torch.sqrt(1 - alpha_bar_prev) * eps
+
+    def _prk_sample_fn(
+        self,
+        model,
+        x,
+        t,
+        cond_scale=0,
+        clip_denoised=True,
+        denoised_fn=None,
+        cond_fn=None,
+        model_kwargs=None,
+    ):
+        """
+        Sample x_{t-1} from the model using fourth-order Pseudo Runge-Kutta
+        (https://openreview.net/forum?id=PlKWVd2yBkY).
+        Same usage as p_sample().
+        """
+        if model_kwargs is None:
+            model_kwargs = {}
+
+        def process_xstart(x):
+            if denoised_fn is not None:
+                x = denoised_fn(x)
+            if clip_denoised:
+                return x.clamp(-1, 1)
+            return x
+
+        t_mid = t.float() - 0.5
+        t_prev = t - 1
+        eps_1 = self._get_eps(model, x, t, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
+        x_1 = self._pndm_transfer(x, eps_1, t, t_mid)
+        eps_2 = self._get_eps(model, x_1, t_mid, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
+        x_2 = self._pndm_transfer(x, eps_2, t, t_mid)
+        eps_3 = self._get_eps(model, x_2, t_mid, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
+        x_3 = self._pndm_transfer(x, eps_3, t, t_prev)
+        eps_4 = self._get_eps(model, x_3, t_prev, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
+        eps_prime = (eps_1 + 2 * eps_2 + 2 * eps_3 + eps_4) / 6
+
+        sample = self._pndm_transfer(x, eps_prime, t, t_prev)
+        pred_xstart = self._eps_to_pred_xstart(x, eps_prime, t)
+        pred_xstart = process_xstart(pred_xstart)
+        return {"sample": sample, "pred_xstart": pred_xstart, "eps": eps_prime}
+    
+    def _sample_prk(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+        device = self._get_model_device(model)
+        dtype = self._get_model_dtype(model)
+        
+        imgs = imgs.to(device=device, dtype=dtype)
+        batch_size = imgs.shape[0]
+
+        if start_denoise_step is None:
+            indices = list(range(self.num_timesteps))[::-1]
+        else:
+            indices = list(range(start_denoise_step))[::-1]
+
+        indices = indices[1:-1]
+
+        for i in tqdm(indices, desc="PRK Sampling"):
+            t = self._get_t(i)            
+            ts = t.expand(batch_size).to(device=device)
+            out = self._prk_sample_fn(
+                model,
+                imgs,
+                ts,
+                cond_scale=cond_scale,
+                clip_denoised=clip_denoised,
+                denoised_fn=denoised_fn,
+                cond_fn=cond_fn,
+                model_kwargs=model_kwargs,
+                generator=generator,
+            )
+            imgs = out["sample"].detach().to(dtype=dtype)
+
+        return imgs
+
+    def _plms_sample_fn(
+        self,
+        model,
+        x,
+        old_eps,
+        t,
+        cond_scale=0,
+        clip_denoised=True,
+        denoised_fn=None,
+        cond_fn=None,
+        model_kwargs=None,
+    ):
+        """
+        Sample x_{t-1} from the model using fourth-order Pseudo Linear Multistep
+        (https://openreview.net/forum?id=PlKWVd2yBkY).
+        """
+        if model_kwargs is None:
+            model_kwargs = {}
+
+        def process_xstart(x):
+            if denoised_fn is not None:
+                x = denoised_fn(x)
+            if clip_denoised:
+                return x.clamp(-1, 1)
+            return x
+
+        eps = self._get_eps(model, x, t, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
+        eps_prime = (55 * eps - 59 * old_eps[-1] + 37 * old_eps[-2] - 9 * old_eps[-3]) / 24
+
+        sample = self._pndm_transfer(x, eps_prime, t, t - 1)
+        pred_xstart = self._eps_to_pred_xstart(x, eps, t)
+        pred_xstart = process_xstart(pred_xstart)
+        return {"sample": sample, "pred_xstart": pred_xstart, "eps": eps}
+    
+    @torch.no_grad()
+    def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+        device = self._get_model_device(model)
+        dtype = self._get_model_dtype(model)
+        
+        imgs = imgs.to(device=device, dtype=dtype)
+        batch_size = imgs.shape[0]
+
+        if start_denoise_step is None:
+            indices = list(range(self.num_timesteps))[::-1]
+        else:
+            indices = list(range(start_denoise_step))[::-1]
+
+        indices = indices[1:-1]
+
+        old_eps = []
+
+        for i in tqdm(indices, desc="PLMS Sampling"):
+            t = self._get_t(i)            
+            ts = t.expand(batch_size).to(device=device)
+            if len(old_eps) < 3:
+                out = self._prk_sample_fn(
+                    model,
+                    imgs,
+                    ts,
+                    cond_scale=cond_scale,
+                    clip_denoised=clip_denoised,
+                    denoised_fn=denoised_fn,
+                    cond_fn=cond_fn,
+                    model_kwargs=model_kwargs,
+                )
+            else:
+                out = self._plms_sample_fn(
+                    model,
+                    imgs,
+                    old_eps,
+                    t,
+                    cond_scale=cond_scale,
+                    clip_denoised=clip_denoised,
+                    denoised_fn=denoised_fn,
+                    cond_fn=cond_fn,
+                    model_kwargs=model_kwargs,
+                )
+                old_eps.pop(0)
+            old_eps.append(out["eps"])
+            imgs = out["sample"].detach().to(dtype=dtype)
+        return imgs
 
 class _WrappedModel:
     def __init__(self, model, timestep_map, rescale_timesteps, original_num_steps):

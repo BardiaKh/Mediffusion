@@ -24,7 +24,7 @@ class DiffusionPLModule(bpu.BKhModule):
         model_mean_type = ModelMeanType.EPSILON,
         model_var_type = ModelVarType.FIXED_SMALL,
         loss_type = LossType.MSE,
-        classifier_cond_scale=0,
+        classifier_cond_scale=4,
         inference_protocol="DDPM",
         input_size=256,
         optimizer=torch.optim.AdamW,
@@ -37,7 +37,6 @@ class DiffusionPLModule(bpu.BKhModule):
         super().__init__(collate_fn=collate_fn, val_collate_fn=val_collate_fn, train_sampler=train_sampler, val_sampler=val_sampler, train_ds=train_ds, val_ds=val_ds, dl_workers=dl_workers, batch_size=batch_size, val_batch_size=val_batch_size)
         self.task_type = task_type
         self.loss_type = loss_type
-        self.classifier_cond_scale = classifier_cond_scale
         self.inference_protocol = inference_protocol
         self.model_mean_type = model_mean_type
         self.model_var_type = model_var_type
@@ -67,6 +66,11 @@ class DiffusionPLModule(bpu.BKhModule):
             raise NotImplemented("Only uniform timestep scheduler is supported for now")
 
         self.class_conditioned = False if self.model_config['num_classes']==0 else True
+        
+        if not self.class_conditioned:
+            self.classifier_cond_scale = 0
+        else:
+            self.classifier_cond_scale = classifier_cond_scale
 
         self.save_hyperparameters()
         
