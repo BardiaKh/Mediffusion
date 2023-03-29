@@ -1,4 +1,4 @@
-from .diffusion_base import GaussianDiffusionBase, SpacedDiffusion, ModelMeanType, ModelVarType, LossType
+from .diffusion_base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
 from .solvers import DDPMSolver, DDIMSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, UniformSampler
 from .unet import UNetModel, SuperResModel
@@ -245,7 +245,7 @@ class DiffusionPLModule(bpu.BKhModule):
             solver = DDPMSolver(self.diffusion)
         elif inference_porotocol.startswith("DDIM"):
             num_steps = int(inference_porotocol[:4])
-            solver = DDPMSolver(self.diffusion, num_steps=num_steps)
+            solver = DDIMSolver(self.diffusion, num_steps=num_steps)
         else:
             raise ValueError(f"Unknown inference protocol {self.inference_protocol}, only DDPM, DDIM are supported")
 
