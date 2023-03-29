@@ -192,6 +192,12 @@ class GaussianDiffusionBase(torch.nn.Module):
             pred_xstart
         ) / self._extract_into_tensor(self.sqrt_recip_alphas_cumprod_minus_one, t, x_t.shape)
 
+    def _get_v(self, x_start, noise, t):
+        return (
+            self._extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * noise - \
+            self._extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * x_start
+        )
+
     def _scale_timesteps(self, t):
         if self.rescale_timesteps:
             rescale_denominator = self.num_timesteps
@@ -401,6 +407,9 @@ class GaussianDiffusionBase(torch.nn.Module):
                 )[0],
                 ModelMeanType.START_X: x_start,
                 ModelMeanType.EPSILON: noise,
+                ModelMeanType.VELOCITY: self._get_v(
+                    x_start=x_start, noise=noise, t=t
+                ),
             }[self.model_mean_type]
             assert model_output.shape == target.shape == x_start.shape
 
