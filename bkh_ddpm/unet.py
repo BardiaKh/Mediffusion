@@ -654,6 +654,8 @@ class UNetModel(nn.Module):
             self.num_classes > 0
         ), "must specify cls if and only if the model is class-conditional"
 
+        import warnings
+        warnings.warn(f"weight:{self.time_embed.weight.dtype} t:{timesteps.dtype} x:{x.dtype} embed:{timestep_embedding(timesteps, self.model_channels)}")
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels).to(dtype=x.dtype))
 
         if self.num_classes > 0:

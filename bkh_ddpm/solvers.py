@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from tqdm import tqdm
-import warnings
 from .diffusion_base import GaussianDiffusionBase
 from .utils.diffusion import get_respaced_betas
 from .utils.solvers import extract_diffusion_args
@@ -31,7 +30,7 @@ class DDPMSolver(SolverBase):
         super().__init__(**kwargs)
 
     def _get_t(self, i):
-        return self.timestep_map.gather(-1, torch.tensor([i]).long())
+        return torch.tensor([i]).long()
 
     def _sample_fn(
         self,
