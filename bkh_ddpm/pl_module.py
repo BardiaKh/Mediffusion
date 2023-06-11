@@ -210,7 +210,7 @@ class DiffusionPLModule(bpu.BKhModule):
                 imgs_to_log.append(img)
             self.logger.log_image(key="low-res samples", images=imgs_to_log)
 
-        imgs = self.predict(init_noise, inference_porotocol=self.inference_protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
+        imgs = self.predict(init_noise, inference_protocol=self.inference_protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
 
         if self.model_config['dims']==3:
             imgs = torch.stack(imgs, dim=0)         # (B, C, H, W, D)
@@ -236,7 +236,7 @@ class DiffusionPLModule(bpu.BKhModule):
             self.logger.log_image(key="validation samples", images=imgs_to_log)
 
     @torch.no_grad()
-    def predict(self, init_noise, inference_porotocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None):            
+    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
         if model_kwargs is None:
             model_kwargs = {"cls": None}
@@ -245,10 +245,10 @@ class DiffusionPLModule(bpu.BKhModule):
             if model_kwargs[key] is not None:
                 model_kwargs[key] = model_kwargs[key].to(device=self.device, dtype=self.dtype)
         
-        if inference_porotocol == "DDPM":
+        if inference_protocol == "DDPM":
             solver = DDPMSolver(self.diffusion)
-        elif inference_porotocol.startswith("DDIM"):
-            num_steps = int(inference_porotocol[len("DDIM"):])
+        elif inference_protocol.startswith("DDIM"):
+            num_steps = int(inference_protocol[len("DDIM"):])
             solver = DDIMSolver(self.diffusion, num_steps=num_steps)
         else:
             raise ValueError(f"Unknown inference protocol {self.inference_protocol}, only DDPM, DDIM are supported")
