@@ -454,7 +454,7 @@ class PNMDSolver(SolverBase):
         t_prev = t - 1
         eps_1 = self._get_eps(model, x, t, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
         x_1 = self._pndm_transfer(x, eps_1, t, t_mid)
-        warnings.warn(f"tmid:{t_mid.type}, t{t.dtype}", RuntimeWarning)
+        warnings.warn(f"tmid:{t_mid.dtype}, t {t.dtype}", RuntimeWarning)
         eps_2 = self._get_eps(model, x_1, t_mid, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
         x_2 = self._pndm_transfer(x, eps_2, t, t_mid)
         eps_3 = self._get_eps(model, x_2, t_mid, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
