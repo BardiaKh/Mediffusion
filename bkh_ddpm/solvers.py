@@ -95,7 +95,7 @@ class DDPMSolver(SolverBase):
 
         for i in tqdm(indices, desc="DDPM Sampling"):
             t = self._get_t(i)
-            ts = t.expand(batch_size).to(device=self.device)
+            ts = t.expand(batch_size).to(device=device)
             out = self._sample_fn(
                 model,
                 imgs,
