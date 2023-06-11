@@ -107,7 +107,7 @@ class DDPMSolver(SolverBase):
                 model_kwargs=model_kwargs,
                 generator = generator,
             )
-            imgs = out["sample"].detach().to(dtype=imgs.dtype)
+            imgs = out["sample"].detach().to(dtype=dtype, device=device)
 
         return imgs
     
@@ -287,7 +287,7 @@ class DDIMSolver(SolverBase):
                 model_kwargs=model_kwargs,
                 generator=generator,
             )
-            imgs = out["sample"].detach().to(dtype=dtype)
+            imgs = out["sample"].detach().to(dtype=dtype, device=device)
 
         return imgs
     
@@ -462,7 +462,7 @@ class PNMDSolver(SolverBase):
 
         sample = self._pndm_transfer(x, eps_prime, t, t_prev)
         pred_xstart = self._eps_to_pred_xstart(x, eps_prime, t)
-        pred_xstart = process_xstart(pred_xstart).to(device=x.device, dtype=x.dtype)
+        pred_xstart = process_xstart(pred_xstart)
         return {"sample": sample, "pred_xstart": pred_xstart, "eps": eps_prime}
     
     def _sample_prk(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
@@ -493,7 +493,7 @@ class PNMDSolver(SolverBase):
                 model_kwargs=model_kwargs,
                 generator=generator,
             )
-            imgs = out["sample"].detach().to(dtype=dtype)
+            imgs = out["sample"].detach().to(dtype=dtype, device=device)
 
         return imgs
 
@@ -526,7 +526,7 @@ class PNMDSolver(SolverBase):
         eps = self._get_eps(model, x, t, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
         eps_prime = (55 * eps - 59 * old_eps[-1] + 37 * old_eps[-2] - 9 * old_eps[-3]) / 24
 
-        sample = self._pndm_transfer(x, eps_prime, t, t - 1)
+        sample = self._pndm_transfer(x, eps_prime, t, t - 1).to(x.dtype)
         pred_xstart = self._eps_to_pred_xstart(x, eps, t)
         pred_xstart = process_xstart(pred_xstart)
         return {"sample": sample, "pred_xstart": pred_xstart, "eps": eps}
@@ -576,7 +576,7 @@ class PNMDSolver(SolverBase):
                 )
                 old_eps.pop(0)
             old_eps.append(out["eps"])
-            imgs = out["sample"].detach().to(dtype=dtype)
+            imgs = out["sample"].detach().to(dtype=dtype, device=device)
         return imgs
 
 class _WrappedModel:
