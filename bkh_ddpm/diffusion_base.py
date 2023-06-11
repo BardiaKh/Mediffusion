@@ -151,6 +151,9 @@ class GaussianDiffusionBase(torch.nn.Module):
             frac = frac.unsqueeze(-1)
         res_1 = self._extract_into_tensor(arr, timesteps.floor().long(), broadcast_shape)
         res_2 = self._extract_into_tensor(arr, timesteps.ceil().long(), broadcast_shape)
+        res_1 = res_1.to(dtype=torch.float64)
+        res_2 = res_2.to(dtype=torch.float64)
+        frac = frac.to(dtype=torch.float64)
         return torch.lerp(res_1, res_2, frac)
 
 
