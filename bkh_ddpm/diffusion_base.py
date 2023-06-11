@@ -139,6 +139,8 @@ class GaussianDiffusionBase(torch.nn.Module):
         :return: a tensor of shape [batch_size, 1, ...] where the shape has K dims.
         """
         arr = arr.to(timesteps.device)
+        import warnings
+        warnings.warn(f"dtypes: {timesteps.dtype} {arr.dtype}")
         if timesteps.dtype == torch.float64 and arr.dtype == torch.float32:
             timesteps_floor = timesteps.floor().long()
             timesteps_ceil = timesteps.ceil().long()
