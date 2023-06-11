@@ -460,9 +460,9 @@ class PNMDSolver(SolverBase):
         eps_4 = self._get_eps(model, x_3, t_prev, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
         eps_prime = (eps_1 + 2 * eps_2 + 2 * eps_3 + eps_4) / 6
 
-        sample = self._pndm_transfer(x, eps_prime, t, t_prev).to(device=x.device, dtype=x.dtype)
+        sample = self._pndm_transfer(x, eps_prime, t, t_prev)
         pred_xstart = self._eps_to_pred_xstart(x, eps_prime, t)
-        pred_xstart = process_xstart(pred_xstart)
+        pred_xstart = process_xstart(pred_xstart).to(device=x.device, dtype=x.dtype)
         return {"sample": sample, "pred_xstart": pred_xstart, "eps": eps_prime}
     
     def _sample_prk(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
