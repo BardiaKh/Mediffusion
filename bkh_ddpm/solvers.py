@@ -449,7 +449,7 @@ class PNMDSolver(SolverBase):
                 return x.clamp(-1, 1)
             return x
 
-        t_mid = t.float() - 0.5
+        t_mid = (t.float() - 0.5).long()
         t_prev = t - 1
         eps_1 = self._get_eps(model, x, t, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
         x_1 = self._pndm_transfer(x, eps_1, t, t_mid)
