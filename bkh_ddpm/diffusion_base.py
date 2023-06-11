@@ -141,7 +141,7 @@ class GaussianDiffusionBase(torch.nn.Module):
         arr = arr.to(timesteps.device)
         import warnings
         warnings.warn(f"dtypes: {timesteps.dtype} {arr.dtype}")
-        if timesteps.dtype == torch.float64 and arr.dtype == torch.float32:
+        if timesteps.dtype == torch.float64 or timesteps.dtype == torch.float64 == torch.float32:
             timesteps_floor = timesteps.floor().long()
             timesteps_ceil = timesteps.ceil().long()
             timesteps_floor = torch.clamp(timesteps_floor, 0, arr.shape[-1] - 1)
