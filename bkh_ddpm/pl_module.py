@@ -1,5 +1,5 @@
 from .diffusion_base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
-from .solvers import DDPMSolver, DDIMSolver
+from .solvers import DDPMSolver, DDIMSolver, PNDMSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, UniformSampler
 from .unet import UNetModel, SuperResModel
 import torch
@@ -238,7 +238,6 @@ class DiffusionPLModule(bpu.BKhModule):
     @torch.no_grad()
     def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
-        print("Inference protocol: ", inference_protocol)
         if model_kwargs is None:
             model_kwargs = {"cls": None}
 
@@ -251,6 +250,9 @@ class DiffusionPLModule(bpu.BKhModule):
         elif inference_protocol.startswith("DDIM"):
             num_steps = int(inference_protocol[len("DDIM"):])
             solver = DDIMSolver(self.diffusion, num_steps=num_steps)
+        elif inference_protocol.startswith("PNDM"):
+            num_steps = int(inference_protocol[len("PNDM"):])
+            solver = PNDMSolver(self.diffusion, num_steps=num_steps)
         else:
             raise ValueError(f"Unknown inference protocol {self.inference_protocol}, only DDPM, DDIM are supported")
 
