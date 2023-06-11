@@ -133,7 +133,7 @@ class DiffusionPLModule(bpu.BKhModule):
         else:
             assert len(x_start.shape) == len(self.model_input_shape) + 1, f"Input shape is not compatible with model input shape ({self.model_input_shape})"
         
-        upsampler = partial(torch.nn.functional.interpolate, size=self.model_input_shape[-2], mode="nearest")
+        upsampler = partial(torch.nn.functional.interpolate, size=self.model_input_shape[-2], mode="nearest-exact")
         all_features = {}
         for step in self.feature_extractor_steps:
             t = self.timestep_map.gather(-1, torch.tensor([step]).long()).to(self.device)
