@@ -139,7 +139,14 @@ class GaussianDiffusionBase(torch.nn.Module):
         :return: a tensor of shape [batch_size, 1, ...] where the shape has K dims.
         """
         arr = arr.to(timesteps.device)
-        out = arr.gather(-1, timesteps)
+        if timesteps.dtype.startswith("float"):
+            timesteps_floor = timesteps.floor().long()
+            timesteps_ceil = timesteps.ceil().long()
+            timesteps_floor = torch.clamp(timesteps_floor, 0, arr.shape[-1] - 1)
+            timesteps_ceil = torch.clamp(timesteps_ceil, 0, arr.shape[-1] - 1)
+            out = (arr.gather(-1, timesteps_floor) + arr.gather(-1, timesteps_ceil)) / 2
+        else: # integer timesteps
+            out = arr.gather(-1, timesteps)
         while len(out.shape) < len(broadcast_shape):
             out = out.unsqueeze(-1)
         return out.expand(broadcast_shape)
