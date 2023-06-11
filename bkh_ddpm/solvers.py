@@ -460,7 +460,7 @@ class PNMDSolver(SolverBase):
         eps_4 = self._get_eps(model, x_3, t_prev, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
         eps_prime = (eps_1 + 2 * eps_2 + 2 * eps_3 + eps_4) / 6
 
-        sample = self._pndm_transfer(x, eps_prime, t, t_prev)
+        sample = self._pndm_transfer(x, eps_prime, t, t_prev).to(x.dtype, x.device)
         pred_xstart = self._eps_to_pred_xstart(x, eps_prime, t)
         pred_xstart = process_xstart(pred_xstart)
         return {"sample": sample, "pred_xstart": pred_xstart, "eps": eps_prime}
