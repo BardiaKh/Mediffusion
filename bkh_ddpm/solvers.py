@@ -595,8 +595,8 @@ class _WrappedModel:
 
     def forward_with_cond_scale(self, x, ts, **kwargs):
         map_tensor = torch.tensor(self.timestep_map, device=ts.device, dtype=ts.dtype)
+        # ts = ts.long()
         new_ts = map_tensor[ts]
         if self.rescale_timesteps:
             new_ts = new_ts.float() * (1000.0 / self.original_num_steps)
-        new_ts = new_ts.long()
         return self.model.forward_with_cond_scale(x, new_ts, **kwargs)
