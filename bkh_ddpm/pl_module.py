@@ -238,6 +238,7 @@ class DiffusionPLModule(bpu.BKhModule):
     @torch.no_grad()
     def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
+        print("Inference protocol: ", inference_protocol)
         if model_kwargs is None:
             model_kwargs = {"cls": None}
 
