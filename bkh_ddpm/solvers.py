@@ -452,11 +452,11 @@ class PNMDSolver(SolverBase):
         t_mid = t.float() - 0.5
         t_prev = t - 1
         eps_1 = self._get_eps(model, x, t, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
-        x_1 = self._pndm_transfer(x, eps_1, t, t_mid)
+        x_1 = self._pndm_transfer(x, eps_1, t, t_mid).to(x.dtype)
         eps_2 = self._get_eps(model, x_1, t_mid, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
-        x_2 = self._pndm_transfer(x, eps_2, t, t_mid)
+        x_2 = self._pndm_transfer(x, eps_2, t, t_mid).to(x.dtype)
         eps_3 = self._get_eps(model, x_2, t_mid, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
-        x_3 = self._pndm_transfer(x, eps_3, t, t_prev)
+        x_3 = self._pndm_transfer(x, eps_3, t, t_prev).to(x.dtype)
         eps_4 = self._get_eps(model, x_3, t_prev, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
         eps_prime = (eps_1 + 2 * eps_2 + 2 * eps_3 + eps_4) / 6
 
