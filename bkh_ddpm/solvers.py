@@ -421,7 +421,7 @@ class PNMDSolver(SolverBase):
     ):
         pred_xstart = self._eps_to_pred_xstart(x, eps, t_1)
         alpha_bar_prev = self._extract_into_tensor_lerp(self.alphas_cumprod, t_2, x.shape)
-        return pred_xstart * torch.sqrt(alpha_bar_prev) + torch.sqrt(1 - alpha_bar_prev) * eps
+        return (pred_xstart * torch.sqrt(alpha_bar_prev) + torch.sqrt(1 - alpha_bar_prev) * eps).to(x.dtype)
 
     def _prk_sample_fn(
         self,
@@ -449,14 +449,14 @@ class PNMDSolver(SolverBase):
                 return x.clamp(-1, 1)
             return x
 
-        t_mid = t.float() - 0.5
-        t_prev = t - 1
+        t_mid = t - 1
+        t_prev = t - 2
         eps_1 = self._get_eps(model, x, t, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
-        x_1 = self._pndm_transfer(x, eps_1, t, t_mid).to(x.dtype)
+        x_1 = self._pndm_transfer(x, eps_1, t, t_mid)
         eps_2 = self._get_eps(model, x_1, t_mid, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
-        x_2 = self._pndm_transfer(x, eps_2, t, t_mid).to(x.dtype)
+        x_2 = self._pndm_transfer(x, eps_2, t, t_mid)
         eps_3 = self._get_eps(model, x_2, t_mid, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
-        x_3 = self._pndm_transfer(x, eps_3, t, t_prev).to(x.dtype)
+        x_3 = self._pndm_transfer(x, eps_3, t, t_prev)
         eps_4 = self._get_eps(model, x_3, t_prev, cond_scale=cond_scale, model_kwargs=model_kwargs, cond_fn=cond_fn)
         eps_prime = (eps_1 + 2 * eps_2 + 2 * eps_3 + eps_4) / 6
 
