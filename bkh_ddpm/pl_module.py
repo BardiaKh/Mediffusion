@@ -255,7 +255,7 @@ class DiffusionPLModule(bpu.BKhModule):
             num_steps = int(inference_protocol[len("PNMD"):])
             solver = PNMDSolver(self.diffusion, num_steps=num_steps)
         else:
-            raise ValueError(f"Unknown inference protocol {inference_protocol}, only DDPM, DDIM are supported")
+            raise ValueError(f"Unknown inference protocol {inference_protocol}, only DDPM, DDIM, PNMD are supported")
 
         imgs = solver.sample(
             self.model,
