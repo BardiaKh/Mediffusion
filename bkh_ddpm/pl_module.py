@@ -1,6 +1,6 @@
 from .diffusion_base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
 from .solvers import DDPMSolver, DDIMSolver, PNMDSolver
-from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, UniformSampler
+from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
 from .unet import UNetModel, SuperResModel
 import torch
 import numpy as np
@@ -19,7 +19,7 @@ class DiffusionPLModule(bpu.BKhModule):
         beta_schedule_name="cosine", beta_start=1e-4, beta_end=2e-2, cosine_s=0.008,
         task_type = "unsupervised",
         timestep_scheduler_name="uniform",
-        timestep_respacing="",
+        timestep_respacing=None,
         model_config_path="configs/model_unsupervised.yaml",
         model_mean_type = ModelMeanType.EPSILON,
         model_var_type = ModelVarType.FIXED_SMALL,
@@ -43,11 +43,12 @@ class DiffusionPLModule(bpu.BKhModule):
         self.lr = lr
         self.optimizer_class = optimizer
 
-        self.initial_betas = get_named_beta_schedule(beta_schedule_name,num_diffusion_timesteps, beta_start, beta_end, cosine_s)
-        if timestep_respacing=="":
+        initial_betas = get_named_beta_schedule(beta_schedule_name,num_diffusion_timesteps, beta_start, beta_end, cosine_s)
+        if timestep_respacing==None:
             timestep_respacing = [num_diffusion_timesteps]
         
-        final_betas, self.timestep_map  = get_respaced_betas(self.initial_betas, timestep_respacing)
+        final_betas, self.timestep_map  = get_respaced_betas(initial_betas, timestep_respacing)
+        final_betas = enforce_zero_terminal_snr(final_betas)
         
         self.diffusion = GaussianDiffusionBase(final_betas, model_mean_type, model_var_type, loss_type)
 
