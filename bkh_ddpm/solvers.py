@@ -127,7 +127,7 @@ class DDIMSolver(SolverBase):
         if base_diffusion.num_timesteps - 1 not in self.use_timesteps:
             self.use_timesteps = torch.cat(self.use_timesteps, torch.tensor([base_diffusion.num_timesteps - 1]))
             import warnings
-            warnings.warn(f"{self.use_timesteps} does not include the last timestep.}")
+            warnings.warn(f"{self.use_timesteps} does not include the last timestep.")
                     
         self.timestep_map = []
         self.original_num_steps = len(kwargs["betas"])
