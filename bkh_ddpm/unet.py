@@ -687,7 +687,7 @@ class UNetModel(nn.Module):
         
         return h
 
-    def forward_with_cond_scale(self, x, timesteps, cls=None, cond_scale=0, **kwargs):
+    def forward_with_cond_scale(self, x, timesteps, cls=None, cond_scale=0, phi=0.7, **kwargs):
         """model forward with conditional scale (used in inference)
 
         Args:
@@ -695,6 +695,7 @@ class UNetModel(nn.Module):
             timesteps: timesteps
             cls: class vector. Defaults to None.
             cond_scale (int, optional): conditioning scale. Defaults to 0.
+            phi (float, optional): rescale factor. Defaults to 0.7.
 
         Returns:
             _type_: model outputs after conditioning
@@ -704,7 +705,15 @@ class UNetModel(nn.Module):
             return logits
 
         null_logits = self(x, timesteps, cls, drop_cls_prob=1, **kwargs)
-        return logits + (logits - null_logits) * cond_scale
+        ccf_g = logits + (logits - null_logits) * cond_scale
+        
+        # Rescale classifier-free guidance
+        sigma_pos = torch.std(logits)
+        sigma_ccf_g = torch.std(ccf_g)
+        rescaled = ccf_g * (sigma_pos / sigma_ccf_g)
+        final = phi * rescaled + (1 - phi) * ccf_g
+        
+        return final
 
     def _prob_mask_like(self, shape, prob, device):
         """generate a mask with prob
