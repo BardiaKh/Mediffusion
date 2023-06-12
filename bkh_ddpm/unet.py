@@ -656,7 +656,6 @@ class UNetModel(nn.Module):
 
         import warnings
         warnings.warn(f"weight:{self.time_embed[0].weight.device} t:{timesteps.device} x:{x.device}")
-        warnings.warn(f"weight:{self.time_embed[0].weight.dtype} t:{timesteps.dtype} x:{x.dtype}")
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels).to(dtype=x.dtype))
 
         if self.num_classes > 0:

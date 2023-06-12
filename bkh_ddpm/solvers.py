@@ -567,7 +567,7 @@ class PNMDSolver(SolverBase):
                     model,
                     imgs,
                     old_eps,
-                    t,
+                    ts,
                     cond_scale=cond_scale,
                     clip_denoised=clip_denoised,
                     denoised_fn=denoised_fn,
