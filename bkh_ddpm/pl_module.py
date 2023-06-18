@@ -277,6 +277,9 @@ class DiffusionPLModule(bpu.BKhModule):
                 img = imgs[i]
                 img = post_process_fn(img)
                 imgs[i] = img
+                
+        for i in range(len(imgs)):
+            imgs[i] = imgs[i].cpu()
 
         return imgs
 

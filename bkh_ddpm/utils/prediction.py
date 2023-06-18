@@ -1,4 +1,4 @@
-import numpy as np
+import torch
 
 def to_uint8(x):
-    return (127.5 * np.clip(x, -1, 1) + 1).astype(np.uint8)
+    return (127.5 * torch.clip(x, -1, 1) + 1).to(torch.uint8)
