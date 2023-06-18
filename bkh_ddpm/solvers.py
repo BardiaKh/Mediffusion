@@ -180,7 +180,7 @@ class DDIMSolver(SolverBase):
         cond_fn=None,
         model_kwargs=None,
         generator=None,
-        eta=0.0,
+        eta=1.0,
     ):
         """
         Sample x_{t-1} from the model using DDIM.
