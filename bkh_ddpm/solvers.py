@@ -351,7 +351,7 @@ class InverseDDIMSolver(SolverBase):
         return {"sample": mean_pred, "pred_xstart": out["pred_xstart"]}
     
     @torch.no_grad()
-    def sample(self, model, imgs, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+    def sample(self, model, imgs, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None, start_denoise_step=None):
         device = self._get_model_device(model)
         dtype = self._get_model_dtype(model)
         
@@ -359,6 +359,11 @@ class InverseDDIMSolver(SolverBase):
         batch_size = imgs.shape[0]
 
         indices = list(range(self.num_timesteps))
+        if start_denoise_step is None:
+            indices = list(range(self.num_timesteps))
+        else:
+            indices = list(range(start_denoise_step, self.num_timesteps))
+
         for i in tqdm(indices, desc="Creating DDIM Noise"):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=self.device)
@@ -375,7 +380,6 @@ class InverseDDIMSolver(SolverBase):
             imgs = out["sample"].detach().to(dtype=imgs.dtype)
 
         return imgs
-
 
 class PNMDSolver(SolverBase):
     """
