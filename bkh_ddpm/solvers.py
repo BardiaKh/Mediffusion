@@ -220,8 +220,97 @@ class DDIMSolver(SolverBase):
         )  # no noise when t == 0
         sample = mean_pred + nonzero_mask * sigma * noise
         return {"sample": sample, "pred_xstart": out["pred_xstart"]}
+        
+    @torch.no_grad()
+    def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+        device = self._get_model_device(model)
+        dtype = self._get_model_dtype(model)
+        
+        imgs = imgs.to(device=device, dtype=dtype)
+        batch_size = imgs.shape[0]
+
+        if start_denoise_step is None:
+            indices = list(range(self.num_timesteps))[::-1]
+        else:
+            indices = list(range(start_denoise_step))[::-1]
+
+        for i in tqdm(indices, desc="DDIM Sampling"):
+            t = self._get_t(i)            
+            ts = t.expand(batch_size).to(device=device)
+            out = self._sample_fn(
+                model,
+                imgs,
+                ts,
+                cond_scale=cond_scale,
+                clip_denoised=clip_denoised,
+                denoised_fn=denoised_fn,
+                cond_fn=cond_fn,
+                model_kwargs=model_kwargs,
+                generator=generator,
+            )
+            imgs = out["sample"].detach().to(dtype=dtype, device=device)
+
+        return imgs
+        
+class InverseDDIMSolver(SolverBase):
+    """
+    A diffusion process which can skip steps in a base diffusion process.
+    :param use_timesteps: a collection (sequence or set) of timesteps from the
+                          original diffusion process to retain.
+    :param kwargs: the kwargs to create the base diffusion process.
+    """
+
+    def __init__(self, diffusion, num_steps):
+        kwargs = extract_diffusion_args(diffusion)
+        base_diffusion = GaussianDiffusionBase(**kwargs)
+
+        _, self.use_timesteps = get_respaced_betas(base_diffusion.betas, f"DDIM{num_steps}")
+                    
+        self.timestep_map = []
+        self.original_num_steps = len(kwargs["betas"])
+
+        last_alpha_cumprod = 1.0
+        new_betas = []
+        for i, alpha_cumprod in enumerate(base_diffusion.alphas_cumprod):
+            if i in self.use_timesteps:
+                new_betas.append(1 - alpha_cumprod / last_alpha_cumprod)
+                last_alpha_cumprod = alpha_cumprod
+                self.timestep_map.append(i)
+                
+        kwargs["betas"] = torch.tensor(new_betas)
+        super().__init__(**kwargs)
+
+    def p_mean_variance(
+        self, model, *args, **kwargs
+    ):  # pylint: disable=signature-differs
+        return super().p_mean_variance(self._wrap_model(model), *args, **kwargs)
+
+    def training_losses(
+        self, model, *args, **kwargs
+    ):  # pylint: disable=signature-differs
+        return super().training_losses(self._wrap_model(model), *args, **kwargs)
+
+    def condition_mean(self, cond_fn, *args, **kwargs):
+        return super().condition_mean(self._wrap_model(cond_fn), *args, **kwargs)
+
+    def condition_score(self, cond_fn, *args, **kwargs):
+        return super().condition_score(self._wrap_model(cond_fn), *args, **kwargs)
+
+    def _wrap_model(self, model):
+        if isinstance(model, _WrappedModel):
+            return model
+        return _WrappedModel(
+            model, self.timestep_map, self.rescale_timesteps, self.original_num_steps
+        )
+
+    def _scale_timesteps(self, t):
+        # Scaling is done by the wrapped model.
+        return t
     
-    def _reverse_sample_fn(
+    def _get_t(self, i):
+        return torch.tensor([i]).long()
+        
+    def _sample_fn(
         self,
         model,
         x,
@@ -262,38 +351,7 @@ class DDIMSolver(SolverBase):
         return {"sample": mean_pred, "pred_xstart": out["pred_xstart"]}
     
     @torch.no_grad()
-    def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
-        device = self._get_model_device(model)
-        dtype = self._get_model_dtype(model)
-        
-        imgs = imgs.to(device=device, dtype=dtype)
-        batch_size = imgs.shape[0]
-
-        if start_denoise_step is None:
-            indices = list(range(self.num_timesteps))[::-1]
-        else:
-            indices = list(range(start_denoise_step))[::-1]
-
-        for i in tqdm(indices, desc="DDIM Sampling"):
-            t = self._get_t(i)            
-            ts = t.expand(batch_size).to(device=device)
-            out = self._sample_fn(
-                model,
-                imgs,
-                ts,
-                cond_scale=cond_scale,
-                clip_denoised=clip_denoised,
-                denoised_fn=denoised_fn,
-                cond_fn=cond_fn,
-                model_kwargs=model_kwargs,
-                generator=generator,
-            )
-            imgs = out["sample"].detach().to(dtype=dtype, device=device)
-
-        return imgs
-    
-    @torch.no_grad()
-    def reverse_sample(self, model, imgs, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+    def sample(self, model, imgs, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
         device = self._get_model_device(model)
         dtype = self._get_model_dtype(model)
         
@@ -304,7 +362,7 @@ class DDIMSolver(SolverBase):
         for i in tqdm(indices, desc="Creating DDIM Noise"):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=self.device)
-            out = self._reverse_sample_fn(
+            out = self._sample_fn(
                 model,
                 imgs,
                 ts,
@@ -317,6 +375,7 @@ class DDIMSolver(SolverBase):
             imgs = out["sample"].detach().to(dtype=imgs.dtype)
 
         return imgs
+
 
 class PNMDSolver(SolverBase):
     """
