@@ -366,7 +366,7 @@ class InverseDDIMSolver(SolverBase):
 
         for i in tqdm(indices, desc="Creating DDIM Noise"):
             t = self._get_t(i)
-            ts = t.expand(batch_size).to(device=self.device)
+            ts = t.expand(batch_size).to(device=device)
             out = self._sample_fn(
                 model,
                 imgs,
@@ -377,7 +377,7 @@ class InverseDDIMSolver(SolverBase):
                 cond_fn=cond_fn,
                 model_kwargs=model_kwargs,
             )
-            imgs = out["sample"].detach().to(dtype=imgs.dtype)
+            imgs = out["sample"].detach().to(dtype=dtype, device=device)
 
         return imgs
 
