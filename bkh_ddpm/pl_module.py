@@ -237,7 +237,7 @@ class DiffusionPLModule(bpu.BKhModule):
             self.logger.log_image(key="validation samples", images=imgs_to_log)
 
     @torch.no_grad()
-    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None, post_process_fn=None):            
+    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None, post_process_fn=None, clip_denoised=False):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
         if model_kwargs is None:
             model_kwargs = {"cls": None}
@@ -265,7 +265,8 @@ class DiffusionPLModule(bpu.BKhModule):
             init_noise,
             start_denoise_step=start_denoise_step,
             cond_scale=classifier_cond_scale,
-            model_kwargs=model_kwargs, 
+            model_kwargs=model_kwargs,
+            clip_denoised=clip_denoised,
             generator=generator
         )
         
