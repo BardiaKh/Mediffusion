@@ -342,7 +342,7 @@ class InverseDDIMSolver(SolverBase):
         eps = (
             self._extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x.shape) * \
             x - out["pred_xstart"]
-        ) / self._extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x.shape)
+        ) / self._extract_into_tensor(self.sqrt_recip_alphas_cumprod_minus_one, t, x.shape)
         alpha_bar_next = self._extract_into_tensor(self.alphas_cumprod_next, t, x.shape)
 
         # Equation 12. reversed
