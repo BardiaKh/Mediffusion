@@ -272,11 +272,12 @@ class DiffusionPLModule(bpu.BKhModule):
         imgs = imgs.split(1, dim=0)                 # [(1, C, H, W, (D))] * B
         imgs = [img.squeeze(0) for img in imgs]     # [(C, H, W, (D))] * B
 
-        for i in range(len(imgs)):
-            img = imgs[i]
-            img = (img + 1) * 127.5
-            img = img.clip(0, 255).to(dtype=torch.uint8).cpu()
-            imgs[i] = img
+        if not inference_protocol.startswith("IDDIM"):
+            for i in range(len(imgs)):
+                img = imgs[i]
+                img = (img + 1) * 127.5
+                img = img.clip(0, 255).to(dtype=torch.uint8).cpu()
+                imgs[i] = img
 
         return imgs
 
