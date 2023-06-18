@@ -1,0 +1,1 @@
+from .prediction import to_uint8

@@ -237,7 +237,7 @@ class DiffusionPLModule(bpu.BKhModule):
             self.logger.log_image(key="validation samples", images=imgs_to_log)
 
     @torch.no_grad()
-    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None):            
+    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None, post_process_fn=None):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
         if model_kwargs is None:
             model_kwargs = {"cls": None}
@@ -272,11 +272,10 @@ class DiffusionPLModule(bpu.BKhModule):
         imgs = imgs.split(1, dim=0)                 # [(1, C, H, W, (D))] * B
         imgs = [img.squeeze(0) for img in imgs]     # [(C, H, W, (D))] * B
 
-        if not inference_protocol.startswith("IDDIM"):
+        if not inference_protocol.startswith("IDDIM") and post_process_fn is not None:
             for i in range(len(imgs)):
                 img = imgs[i]
-                img = (img + 1) * 127.5
-                img = img.clip(0, 255).to(dtype=torch.uint8).cpu()
+                img = post_process_fn(img)
                 imgs[i] = img
 
         return imgs
