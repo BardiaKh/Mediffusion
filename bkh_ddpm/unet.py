@@ -650,25 +650,28 @@ class UNetModel(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
 
-        assert (cls is not None) == (
-            self.num_classes > 0
-        ), "must specify cls if and only if the model is class-conditional"
+        if torch.is_grad_enabled(): # only check if we're in training mode
+            assert (cls is not None) == (
+                self.num_classes > 0
+            ), "must specify cls if and only if the model is class-conditional"
 
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels).to(dtype=x.dtype))
 
         if self.num_classes > 0:
-            assert cls.shape == (x.shape[0],self.num_classes)
-            drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
-            if cls_embed is None:
-                cls_embed = self.class_embed(cls)
-            if drop_cls_prob > 0:
-                cls_mask = self._prob_mask_like(x.shape[0], 1-drop_cls_prob, cls.device).unsqueeze(-1)
-                cls_embed = torch.where(
-                    cls_mask,
-                    cls_embed,
-                    self.null_cls_embed.to(cls.dtype)
-                )
-
+            if cls is None and cls_embed is None:
+                cls_embed = self.null_cls_embed.to(timesteps.dtype)
+            else:
+                drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
+                if cls_embed is None:
+                    assert cls.shape == (x.shape[0],self.num_classes)
+                    cls_embed = self.class_embed(cls)
+                if drop_cls_prob > 0:
+                    cls_mask = self._prob_mask_like(x.shape[0], 1-drop_cls_prob, cls.device).unsqueeze(-1)
+                    cls_embed = torch.where(
+                        cls_mask,
+                        cls_embed,
+                        self.null_cls_embed.to(cls.dtype)
+                    )
 
             emb = emb + cls_embed
 
