@@ -1,0 +1,67 @@
+diffusion:
+  timesteps: 1000
+  schedule_name: cosine
+  schedule_params:
+    beta_start: 0.0001
+    beta_end: 0.02
+    cosine_s: 0.008
+  task_type: unsupervised
+  timestep_respacing: null
+  mean_type: ModelMeanType.EPSILON
+  var_type: ModelVarType.LEARNED_RANGE
+  loss_type: ModelLossType.MSE
+
+optimizer:
+  lr: 0.0001
+  type: torch.optim.AdamW
+
+data:
+  collate_fn: null 
+  val_collate_fn: null
+  train_sampler: null
+  val_sampler: null 
+  train_ds: null
+  val_ds: null
+  dl_workers: -1
+  batch_size: 16
+  val_batch_size: null
+
+inference:
+  classifier_cond_scale: 4
+  protocol: DDIM100
+
+model:
+  input_size: 256
+  dims: 2
+  attention_resolutions: # based on downsampling factor
+  - 8
+  - 16
+  - 32
+  channel_mult:
+  - 1
+  - 1
+  - 2
+  - 2
+  - 4
+  - 4
+  dropout: 0.0
+  in_channels: 1
+  out_channels: 2
+  model_channels: 64
+  num_classes: 24
+  num_head_channels: -1
+  num_heads: 4
+  num_heads_upsample: -1
+  num_res_blocks: 
+  - 2
+  - 2
+  - 2
+  - 2
+  - 2
+  - 2
+  resblock_updown: false
+  use_checkpoint: false
+  use_new_attention_order: false
+  use_scale_shift_norm: true
+  scale_skip_connection: False
+  guidance_drop_prob: 0.1

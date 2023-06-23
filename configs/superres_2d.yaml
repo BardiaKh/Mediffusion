@@ -1,0 +1,56 @@
+diffusion:
+  timesteps: 1000
+  schedule: cosine
+  beta_start: 0.0001
+  beta_end: 0.02
+  cosine_s: 0.008
+  task_type: unsupervised
+  timestep_scheduler_name: uniform
+  timestep_respacing: none
+  mean_type: ModelMeanType.EPSILON
+  var_type: ModelVarType.LEARNED_RANGE
+  loss_type: ModelLossType.MSE
+  input_size: 256
+
+optimizer:
+  lr: 0.0001
+  optimizer: adamax
+
+data:
+  batch_size: 16
+
+inference:
+  classifier_cond_scale: 4
+  inference_protocol: DDIM100
+
+model:
+  dims: 2
+  attention_resolutions: 
+  - 32
+  channel_mult:
+  - 1
+  - 1
+  - 2
+  - 2
+  - 4
+  - 4
+  dropout: 0.0
+  in_channels: 1
+  out_channels: 2
+  model_channels: 64
+  num_classes: 0
+  num_head_channels: -1
+  num_heads: 4
+  num_heads_upsample: -1
+  num_res_blocks: 
+  - 2
+  - 2
+  - 2
+  - 2
+  - 4
+  - 4
+  resblock_updown: false
+  use_checkpoint: false
+  use_new_attention_order: false
+  use_scale_shift_norm: true
+  scale_skip_connection: true

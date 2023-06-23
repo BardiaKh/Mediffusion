@@ -1,6 +1,8 @@
+from logging import config
 from .diffusion_base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
 from .solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
+from .utils.imports import get_obj_from_str
 from .unet import UNetModel, SuperResModel
 import torch
 import numpy as np
@@ -9,107 +11,65 @@ import bkh_pytorch_utils as bpu
 from tqdm import tqdm
 import torchextractor as tx
 from functools import partial
+from omegaconf import OmegaConf
 
-from skimage.io import imsave
 
 class DiffusionPLModule(bpu.BKhModule):
     def __init__(
         self,
-        num_diffusion_timesteps,
-        beta_schedule_name="cosine", beta_start=1e-4, beta_end=2e-2, cosine_s=0.008,
-        task_type = "unsupervised",
-        timestep_scheduler_name="uniform",
-        timestep_respacing=None,
-        model_config_path="configs/model_unsupervised.yaml",
-        model_mean_type = ModelMeanType.EPSILON,
-        model_var_type = ModelVarType.FIXED_SMALL,
-        loss_type = LossType.MSE,
-        classifier_cond_scale=4,
-        inference_protocol="DDPM",
-        input_size=256,
-        optimizer=torch.optim.AdamW,
-        collate_fn=None, 
-        val_collate_fn=None,
-        train_sampler=None,val_sampler=None, 
-        train_ds=None, val_ds=None, dl_workers=-1,
-        batch_size=16, val_batch_size=None, lr=1e-4,
+        config_file,
+        **kwargs
     ):
-        super().__init__(collate_fn=collate_fn, val_collate_fn=val_collate_fn, train_sampler=train_sampler, val_sampler=val_sampler, train_ds=train_ds, val_ds=val_ds, dl_workers=dl_workers, batch_size=batch_size, val_batch_size=val_batch_size)
-        self.task_type = task_type
-        self.loss_type = loss_type
-        self.inference_protocol = inference_protocol
-        self.model_mean_type = model_mean_type
-        self.model_var_type = model_var_type
-        self.lr = lr
-        self.optimizer_class = optimizer
+        config = OmegaConf.load(config_file)
+        for key, value in kwargs.items():
+            OmegaConf.update(config, key, value, merge=False)
 
-        initial_betas = get_named_beta_schedule(beta_schedule_name,num_diffusion_timesteps, beta_start, beta_end, cosine_s)
-        if timestep_respacing==None:
-            timestep_respacing = [num_diffusion_timesteps]
+        super().__init__(collate_fn=config.data.collate_fn, val_collate_fn=config.data.val_collate_fn, train_sampler=config.data.train_sampler, val_sampler=config.data.val_sampler, train_ds=config.data.train_ds, val_ds=config.data.val_ds, dl_workers=config.data.dl_workers, batch_size=config.data.batch_size, val_batch_size=config.data.val_batch_size)
+        self.task_type = config.task_type
+        self.inference_protocol = config.inference.protocol
+
+        self.lr = config.optimizer.lr
+        self.optimizer_class = get_obj_from_str(config.optimizer.type)
+
+        initial_betas = get_named_beta_schedule(
+            schedule_name= config.diffusion.schedule_name,
+            num_diffusion_timesteps= config.diffusion.timesteps,
+            **config.diffusion.schedule_params
+        )
+        
+        if config.diffusion.timestep_respacing is None:
+            timestep_respacing = [config.diffusion.timesteps]
         
         final_betas, self.timestep_map  = get_respaced_betas(initial_betas, timestep_respacing)
         final_betas = enforce_zero_terminal_snr(final_betas)
         
-        self.diffusion = GaussianDiffusionBase(final_betas, model_mean_type, model_var_type, loss_type)
+        self.diffusion = GaussianDiffusionBase(
+            betas = final_betas,
+            model_mean_type = get_obj_from_str(config.diffusion.mean_type),
+            model_var_type = get_obj_from_str(config.diffusion.var_type),
+            loss_type = get_obj_from_str(config.diffusion.loss_type),
+        )
 
-        self.model_config = self.get_model_config(model_config_path, input_size)
+        self.model_config = self.get_model_config(config.model)
 
-        self.model_input_shape = (self.model_config["in_channels"], *[self.model_config["image_size"]]*self.model_config['dims']) # excluding batch dimension
+        self.model_input_shape = (config.model.in_channels, *[config.model.input_size]*config.model.dims) # excluding batch dimension
 
         if self.task_type == "unsupervised":
-            self.model = UNetModel(**self.model_config)
+            self.model = UNetModel(**config.model)
         elif self.task_type.startswith("superres"):
-            self.model = SuperResModel(**self.model_config)
+            self.model = SuperResModel(**config.model)
 
-        if timestep_scheduler_name == "uniform":
-            self.timestep_scheduler = UniformSampler(self.diffusion.num_timesteps, self.timestep_map)
-        else:
-            raise NotImplemented("Only uniform timestep scheduler is supported for now")
+        self.timestep_scheduler = UniformSampler(self.diffusion.num_timesteps, self.timestep_map)
 
-        self.class_conditioned = False if self.model_config['num_classes']==0 else True
+        self.class_conditioned = False if config.model.num_classes == 0 else True
         
         if not self.class_conditioned:
             self.classifier_cond_scale = 0
         else:
-            self.classifier_cond_scale = classifier_cond_scale
-
-        self.save_hyperparameters()
+            self.classifier_cond_scale = config.inference.classifier_cond_scale
         
     def forward(self, x, t, **kwargs):
         return self.model(x, t, **kwargs)
-
-    def get_model_config(self, config_path, input_size):
-        model_config = yaml.safe_load(open(config_path, "r"))
-        model_config["image_size"] = input_size
-        
-        if self.model_var_type in [ModelVarType.LEARNED, ModelVarType.LEARNED_RANGE]:
-            model_config["out_channels"] = 2 * model_config["in_channels"]
-        else:
-            model_config["out_channels"] = model_config["in_channels"]
-
-        if model_config['channel_mult'] == "":
-            if model_config["image_size"] == 512:
-                model_config['channel_mult'] = (0.5, 1, 1, 2, 2, 4, 4)
-            elif model_config["image_size"] == 256:
-                model_config['channel_mult'] = (1, 1, 2, 2, 4, 4)
-            elif model_config["image_size"] == 128:
-                model_config['channel_mult'] = (1, 1, 2, 3, 4)
-            elif model_config["image_size"] == 64:
-                model_config['channel_mult'] = (1, 2, 3, 4)
-            else:
-                raise ValueError(f"unsupported image size: {model_config['image_size']}")
-        else:
-            model_config['channel_mult'] = tuple(int(ch_mult) for ch_mult in model_config['channel_mult'].split(","))
-
-        attention_ds = []
-        for res in model_config['attention_resolutions'].split(","):
-            attention_ds.append(input_size // int(res))
-
-        model_config['attention_resolutions'] = attention_ds
-
-        model_config['num_res_blocks'] = [int(i) for i in str(model_config['num_res_blocks']).split(",")]
-        
-        return model_config
 
     def setup_feature_extractor(self, steps, blocks):
         assert self.task_type == "unsupervised", "Feature extractor is only supported for unsupervised tasks"
