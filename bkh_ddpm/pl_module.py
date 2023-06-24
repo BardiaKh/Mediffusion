@@ -2,7 +2,7 @@ from logging import config
 from .diffusion_base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
 from .solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
-from .utils.imports import get_obj_from_str
+from .utils.pl import get_obj_from_str
 from .unet import UNetModel, SuperResModel
 import torch
 import numpy as np
