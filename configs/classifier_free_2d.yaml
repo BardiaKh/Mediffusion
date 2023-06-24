@@ -7,13 +7,13 @@ diffusion:
     cosine_s: 0.008
   task_type: unsupervised
   timestep_respacing: null
-  mean_type: ModelMeanType.EPSILON
-  var_type: ModelVarType.LEARNED_RANGE
-  loss_type: ModelLossType.MSE
+  mean_type: EPSILON
+  var_type: LEARNED_RANGE
+  loss_type: MSE
 
 optimizer:
-  lr: 0.0001
-  type: torch.optim.AdamW
+  lr: 0.00001
+  type: bkh_pytorch_utils.Lion
 
 data:
   collate_fn: null 
@@ -47,8 +47,7 @@ model:
   dropout: 0.0
   in_channels: 1
   out_channels: 2
-  model_channels: 64
-  num_classes: 24
+  model_channels: 128
   num_head_channels: -1
   num_heads: 4
   num_heads_upsample: -1
@@ -63,5 +62,6 @@ model:
   use_checkpoint: false
   use_new_attention_order: false
   use_scale_shift_norm: true
-  scale_skip_connection: False
+  scale_skip_connection: false
+  num_classes: 24
   guidance_drop_prob: 0.1

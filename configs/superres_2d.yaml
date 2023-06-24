@@ -1,29 +1,37 @@
 diffusion:
   timesteps: 1000
-  schedule: cosine
-  beta_start: 0.0001
-  beta_end: 0.02
-  cosine_s: 0.008
-  task_type: unsupervised
-  timestep_scheduler_name: uniform
+  schedule_name: cosine
+  schedule_params:
+    beta_start: 0.0001
+    beta_end: 0.02
+    cosine_s: 0.008
+  task_type: superres
   timestep_respacing: none
-  mean_type: ModelMeanType.EPSILON
-  var_type: ModelVarType.LEARNED_RANGE
-  loss_type: ModelLossType.MSE
-  input_size: 256
+  mean_type: START_X
+  var_type: LEARNED_RANGE
+  loss_type: MSE
 
 optimizer:
-  lr: 0.0001
-  optimizer: adamax
+  lr: 0.00001
+  type: bkh_pytorch_utils.Lion
 
 data:
-  batch_size: 16
+  collate_fn: null 
+  val_collate_fn: null
+  train_sampler: null
+  val_sampler: null 
+  train_ds: null
+  val_ds: null
+  dl_workers: -1
+  batch_size: 5
+  val_batch_size: null
 
 inference:
-  classifier_cond_scale: 4
+  classifier_cond_scale: 0
   inference_protocol: DDIM100
 
 model:
+  input_size: 1024
   dims: 2
   attention_resolutions: 
   - 32
@@ -38,7 +46,6 @@ model:
   in_channels: 1
   out_channels: 2
   model_channels: 64
-  num_classes: 0
   num_head_channels: -1
   num_heads: 4
   num_heads_upsample: -1
@@ -53,4 +60,5 @@ model:
   use_checkpoint: false
   use_new_attention_order: false
   use_scale_shift_norm: true
-  scale_skip_connection: true
+  scale_skip_connection: false
+  num_classes: 0
