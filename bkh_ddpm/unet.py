@@ -431,7 +431,7 @@ class UNetModel(nn.Module):
 
     def __init__(
         self,
-        image_size, # just for compatibility
+        input_size, # just for compatibility
         in_channels,
         model_channels,
         out_channels,
