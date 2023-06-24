@@ -1,4 +1,3 @@
-from logging import config
 from .diffusion_base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
 from .solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
@@ -6,7 +5,6 @@ from .utils.pl import get_obj_from_str
 from .unet import UNetModel, SuperResModel
 import torch
 import numpy as np
-import yaml
 import bkh_pytorch_utils as bpu
 from tqdm import tqdm
 import torchextractor as tx
@@ -45,9 +43,9 @@ class DiffusionPLModule(bpu.BKhModule):
         
         self.diffusion = GaussianDiffusionBase(
             betas = final_betas,
-            model_mean_type = get_obj_from_str(config.diffusion.mean_type),
-            model_var_type = get_obj_from_str(config.diffusion.var_type),
-            loss_type = get_obj_from_str(config.diffusion.loss_type),
+            model_mean_type = ModelMeanType[config.diffusion.mean_type],
+            model_var_type = ModelVarType[config.diffusion.var_type],
+            loss_type = LossType[config.diffusion.loss_type],
         )
 
         self.model_config = self.get_model_config(config.model)
