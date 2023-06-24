@@ -25,7 +25,7 @@ class DiffusionPLModule(bpu.BKhModule):
             OmegaConf.update(config, key, value, merge=False)
 
         super().__init__(collate_fn=config.data.collate_fn, val_collate_fn=config.data.val_collate_fn, train_sampler=config.data.train_sampler, val_sampler=config.data.val_sampler, train_ds=config.data.train_ds, val_ds=config.data.val_ds, dl_workers=config.data.dl_workers, batch_size=config.data.batch_size, val_batch_size=config.data.val_batch_size)
-        self.task_type = config.task_type
+        self.task_type = config.diffusion.task_type
         self.inference_protocol = config.inference.protocol
 
         self.lr = config.optimizer.lr
