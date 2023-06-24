@@ -47,9 +47,7 @@ class DiffusionPLModule(bpu.BKhModule):
             model_var_type = ModelVarType[config.diffusion.var_type],
             loss_type = LossType[config.diffusion.loss_type],
         )
-
-        self.model_config = self.get_model_config(config.model)
-
+        
         self.model_input_shape = (config.model.in_channels, *[config.model.input_size]*config.model.dims) # excluding batch dimension
 
         if self.task_type == "unsupervised":
