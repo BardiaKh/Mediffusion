@@ -27,10 +27,6 @@ class DiffusionPLModule(bpu.BKhModule):
         val_batch_size=None,
         **kwargs
     ):
-        config = OmegaConf.load(config_file)
-        for key, value in kwargs.items():
-            OmegaConf.update(config, key, value, merge=False)
-
         super().__init__(
             collate_fn=collate_fn, 
             val_collate_fn=val_collate_fn, 
@@ -42,46 +38,51 @@ class DiffusionPLModule(bpu.BKhModule):
             batch_size=batch_size, 
             val_batch_size=val_batch_size
         )
-        self.task_type = config.diffusion.task_type
-        self.inference_protocol = config.inference.protocol
 
-        self.lr = config.optimizer.lr
-        self.optimizer_class = get_obj_from_str(config.optimizer.type)
+        self.config = OmegaConf.load(config_file)
+        for key, value in kwargs.items():
+            OmegaConf.update(self.config, key, value, merge=False)        
+
+        self.task_type = self.config.diffusion.task_type
+        self.inference_protocol = self.config.inference.protocol
+
+        self.lr = self.config.optimizer.lr
+        self.optimizer_class = get_obj_from_str(self.config.optimizer.type)
 
         initial_betas = get_named_beta_schedule(
-            schedule_name= config.diffusion.schedule_name,
-            num_diffusion_timesteps= config.diffusion.timesteps,
-            **config.diffusion.schedule_params
+            schedule_name= self.config.diffusion.schedule_name,
+            num_diffusion_timesteps= self.config.diffusion.timesteps,
+            **self.config.diffusion.schedule_params
         )
         
-        if config.diffusion.timestep_respacing is None:
-            timestep_respacing = [config.diffusion.timesteps]
+        if self.config.diffusion.timestep_respacing is None:
+            timestep_respacing = [self.config.diffusion.timesteps]
         
         final_betas, self.timestep_map  = get_respaced_betas(initial_betas, timestep_respacing)
         final_betas = enforce_zero_terminal_snr(final_betas)
         
         self.diffusion = GaussianDiffusionBase(
             betas = final_betas,
-            model_mean_type = ModelMeanType[config.diffusion.mean_type],
-            model_var_type = ModelVarType[config.diffusion.var_type],
-            loss_type = LossType[config.diffusion.loss_type],
+            model_mean_type = ModelMeanType[self.config.diffusion.mean_type],
+            model_var_type = ModelVarType[self.config.diffusion.var_type],
+            loss_type = LossType[self.config.diffusion.loss_type],
         )
         
-        self.model_input_shape = (config.model.in_channels, *[config.model.input_size]*config.model.dims) # excluding batch dimension
-
+        self.model_input_shape = (self.config.model.in_channels, *[self.config.model.input_size]*self.config.model.dims) # excluding batch dimension
+        
         if self.task_type == "unsupervised":
-            self.model = UNetModel(**config.model)
+            self.model = UNetModel(**self.config.model)
         elif self.task_type.startswith("superres"):
-            self.model = SuperResModel(**config.model)
+            self.model = SuperResModel(**self.config.model)
 
         self.timestep_scheduler = UniformSampler(self.diffusion.num_timesteps, self.timestep_map)
 
-        self.class_conditioned = False if config.model.num_classes == 0 else True
+        self.class_conditioned = False if self.config.model.num_classes == 0 else True
         
         if not self.class_conditioned:
-            self.classifier_cond_scale = 0
+            self.classifier_cond_scale = 0 # classifier_cond_scale 0: unconditional | classifier_cond_scale None: training
         else:
-            self.classifier_cond_scale = config.inference.classifier_cond_scale
+            self.classifier_cond_scale = self.config.inference.classifier_cond_scale
         
     def forward(self, x, t, **kwargs):
         return self.model(x, t, **kwargs)
@@ -169,10 +170,10 @@ class DiffusionPLModule(bpu.BKhModule):
             model_kwargs["low_res"] = low_res_img
 
             imgs_to_log = []
-            if self.model_config['dims']==2:
+            if self.config.model.dims == 2:
                 low_res_imgs_tuple = low_res_img.cpu().split(1, dim=0)
                 low_res_imgs_tuple = [img.squeeze(0) for img in low_res_imgs_tuple]
-            elif self.model_config['dims']==3:
+            elif self.config.model.dims == 3:
                 low_res_img = low_res_img.permute(0,4,1,2,3)                # (B, D, C, H, W)
                 low_res_img = low_res_img.view(-1, low_res_img.shape[2:])   # (B*D, C, H, W)
                 low_res_img = low_res_img.split(1, dim=0)                   # [(1, C, H, W)] * B*D
@@ -188,7 +189,7 @@ class DiffusionPLModule(bpu.BKhModule):
 
         imgs = self.predict(init_noise, inference_protocol=self.inference_protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
 
-        if self.model_config['dims']==3:
+        if self.config.model.dims == 3:
             imgs = torch.stack(imgs, dim=0)         # (B, C, H, W, D)
             imgs = imgs.permute(0,4,1,2,3)          # (B, D, C, H, W)
             imgs = imgs.view(-1, imgs.shape[2:])    # (B*D, C, H, W)
