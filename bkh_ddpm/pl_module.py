@@ -40,9 +40,10 @@ class DiffusionPLModule(bpu.BKhModule):
         )
 
         self.config = OmegaConf.load(config_file)
-        for key, value in kwargs.items():
-            OmegaConf.update(self.config, key, value, merge=False)        
-
+        # add batch size to config just for logging purposes
+        OmegaConf.update(self.config, "batch_size", self.batch_size, merge=False)
+        self.save_hyperparameters(self.config)
+        
         self.task_type = self.config.diffusion.task_type
         self.inference_protocol = self.config.inference.protocol
 
