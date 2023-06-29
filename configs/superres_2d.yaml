@@ -15,17 +15,6 @@ optimizer:
   lr: 0.00001
   type: bkh_pytorch_utils.Lion
 
-data:
-  collate_fn: null 
-  val_collate_fn: null
-  train_sampler: null
-  val_sampler: null 
-  train_ds: null
-  val_ds: null
-  dl_workers: -1
-  batch_size: 5
-  val_batch_size: null
-
 inference:
   classifier_cond_scale: 0
   inference_protocol: DDIM100

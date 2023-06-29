@@ -457,10 +457,7 @@ class UNetModel(nn.Module):
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads
 
-        if isinstance(num_res_blocks, list) and len(num_res_blocks) == 1:
-            num_res_blocks = num_res_blocks * len(channel_mult)
-        else:
-            assert len(num_res_blocks) == len(channel_mult), f"num_res_blocks must be same length as channel_mult"
+        assert len(num_res_blocks) == len(channel_mult), f"num_res_blocks must be same length as channel_mult"
 
         self.in_channels = in_channels
         self.model_channels = model_channels
@@ -478,7 +475,7 @@ class UNetModel(nn.Module):
         self.num_heads_upsample = num_heads_upsample
         self.scale_skip_connection = scale_skip_connection
 
-        time_embed_dim = model_channels * 4 # To CONCAT:2
+        time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
             nn.SiLU(),

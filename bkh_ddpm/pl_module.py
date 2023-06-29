@@ -16,13 +16,32 @@ class DiffusionPLModule(bpu.BKhModule):
     def __init__(
         self,
         config_file,
+        train_ds=None,
+        val_ds=None,
+        collate_fn=None,
+        val_collate_fn=None,
+        train_sampler=None,
+        val_sampler=None,
+        dl_workers=None,
+        batch_size=None,
+        val_batch_size=None,
         **kwargs
     ):
         config = OmegaConf.load(config_file)
         for key, value in kwargs.items():
             OmegaConf.update(config, key, value, merge=False)
 
-        super().__init__(collate_fn=config.data.collate_fn, val_collate_fn=config.data.val_collate_fn, train_sampler=config.data.train_sampler, val_sampler=config.data.val_sampler, train_ds=config.data.train_ds, val_ds=config.data.val_ds, dl_workers=config.data.dl_workers, batch_size=config.data.batch_size, val_batch_size=config.data.val_batch_size)
+        super().__init__(
+            collate_fn=collate_fn, 
+            val_collate_fn=val_collate_fn, 
+            train_sampler=train_sampler, 
+            val_sampler=val_sampler, 
+            train_ds=train_ds, 
+            val_ds=val_ds, 
+            dl_workers=dl_workers, 
+            batch_size=batch_size, 
+            val_batch_size=val_batch_size
+        )
         self.task_type = config.diffusion.task_type
         self.inference_protocol = config.inference.protocol
 
