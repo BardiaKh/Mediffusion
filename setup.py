@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="bkh_ddpm",
-    version="0.3.2",
+    version="0.3.3",
     author="Bardia Khosravi",
     author_email="bardiakhosravi95@gmail.com",
     description="Personal take on DDPMs",

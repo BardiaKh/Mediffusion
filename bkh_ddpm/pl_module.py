@@ -96,11 +96,11 @@ class DiffusionPLModule(bpu.BKhModule):
         self.feature_extractor = tx.Extractor(self.model, block_names)
         self.feature_extractor_steps = sorted(steps)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def get_cls_embedding(self, cls):
         return self.model.class_embed(cls)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward_features(self, x_start, noise=None, return_dict=True):
         assert self.task_type == "unsupervised", "Feature extractor is only supported for unsupervised tasks"
         assert self.feature_extractor_steps is not None, "Feature extractor is not setup, run setup_feature_extractor() first!"
@@ -155,7 +155,7 @@ class DiffusionPLModule(bpu.BKhModule):
 
         return loss_terms['loss'].mean()
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def validation_step(self, batch, batch_idx):
         real_imgs = batch["img"]
         cls = batch["cls"] if self.class_conditioned else None
@@ -213,7 +213,7 @@ class DiffusionPLModule(bpu.BKhModule):
         else:
             self.logger.log_image(key="validation samples", images=imgs_to_log)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None, post_process_fn=None, clip_denoised=True):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
         if model_kwargs is None:
