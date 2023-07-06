@@ -194,13 +194,14 @@ class ResBlock(TimestepBlock):
         else:
             self.h_upd = self.x_upd = nn.Identity()
 
-        self.emb_layers = nn.Sequential(
-            nn.SiLU(),
-            linear(
-                emb_channels,
-                2 * self.out_channels if use_scale_shift_norm else self.out_channels,
-            ),
-        )
+        if emb_channels > 0:
+            self.emb_layers = nn.Sequential(
+                nn.SiLU(),
+                linear(
+                    emb_channels,
+                    2 * self.out_channels if use_scale_shift_norm else self.out_channels,
+                ),
+            )
 
         self.out_layers = nn.Sequential(
             normalization(self.out_channels),
@@ -241,23 +242,25 @@ class ResBlock(TimestepBlock):
             h = in_conv(h)
         else:
             h = self.in_layers(x)
-        emb_out = self.emb_layers(emb).type(h.dtype)
-        emb_out = emb_out[(..., ) + (None, ) * (len(h.shape) - len(emb_out.shape))]
-        if self.use_scale_shift_norm:
-            out_norm, out_rest = self.out_layers[0], self.out_layers[1:]
-            scale, shift = torch.chunk(emb_out, 2, dim=1)
-            h = out_norm(h) * (1 + scale) + shift
-            h = out_rest(h)
+            
+        if self.emb_channels > 0:
+            emb_out = self.emb_layers(emb).type(h.dtype)
+            emb_out = emb_out[(..., ) + (None, ) * (len(h.shape) - len(emb_out.shape))]
+            if self.use_scale_shift_norm:
+                out_norm, out_rest = self.out_layers[0], self.out_layers[1:]
+                scale, shift = torch.chunk(emb_out, 2, dim=1)
+                h = out_norm(h) * (1 + scale) + shift
+                h = out_rest(h)
+            else:
+                h = h + emb_out
+                h = self.out_layers(h)
         else:
-            h = h + emb_out
             h = self.out_layers(h)
         
         if not self.scale_skip_connection:
             return self.skip_connection(x) + h
         else:
             return (self.skip_connection(x) + h) * (2 ** -0.5)
-
-
 
 class AttentionBlock(nn.Module):
     """
@@ -459,6 +462,7 @@ class UNetModel(nn.Module):
 
         assert len(num_res_blocks) == len(channel_mult), f"num_res_blocks must be same length as channel_mult"
 
+        self.dims = dims
         self.in_channels = in_channels
         self.model_channels = model_channels
         self.out_channels = out_channels
@@ -672,7 +676,6 @@ class UNetModel(nn.Module):
 
         h = x
         hs = []
-
         for module in self.input_blocks:
             h = module(h, emb)
             hs.append(h)
