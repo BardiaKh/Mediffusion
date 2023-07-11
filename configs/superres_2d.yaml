@@ -1,6 +1,7 @@
 diffusion:
   timesteps: 1000
   schedule_name: cosine
+  enforce_zero_terminal_snr: true
   schedule_params:
     beta_start: 0.0001
     beta_end: 0.02
