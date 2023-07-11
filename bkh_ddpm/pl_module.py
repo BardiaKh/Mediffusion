@@ -11,7 +11,6 @@ import torchextractor as tx
 from functools import partial
 from omegaconf import OmegaConf
 
-
 class DiffusionPLModule(bpu.BKhModule):
     def __init__(
         self,
