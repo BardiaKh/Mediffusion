@@ -59,7 +59,8 @@ class DiffusionPLModule(bpu.BKhModule):
             timestep_respacing = [self.config.diffusion.timesteps]
         
         final_betas, self.timestep_map  = get_respaced_betas(initial_betas, timestep_respacing)
-        final_betas = enforce_zero_terminal_snr(final_betas)
+        if self.config.diffusion.enforce_zero_terminal_snr:
+            final_betas = enforce_zero_terminal_snr(final_betas)
         
         self.diffusion = GaussianDiffusionBase(
             betas = final_betas,
