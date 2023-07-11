@@ -658,7 +658,9 @@ class UNetModel(nn.Module):
 
         if self.num_classes > 0:
             if cls is None and cls_embed is None:
-                cls_embed = self.null_cls_embed.to(timesteps.dtype)
+                cls_embed = self.null_cls_embed.to(dtype=timesteps.dtype, device=timesteps.device)
+            elif cls is None and cls_embed is not None:
+                cls_embed = cls_embed.to(timesteps.dtype)
             else:
                 drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
                 if cls_embed is None:
