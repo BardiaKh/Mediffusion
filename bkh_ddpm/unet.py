@@ -658,13 +658,14 @@ class UNetModel(nn.Module):
 
         if self.num_classes > 0:
             if cls is None and cls_embed is None: # usually the case for DDIM inversion
-                drop_cls_prob = 1.0
-
-            drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
-            if cls_embed is None:
+                cls_embed = self.null_cls_embed.to(x.dtype)
+                drop_cls_prob = 0.0
+            elif cls_embed is None:
                 assert cls.shape == (x.shape[0],self.num_classes)
                 cls_embed = self.class_embed(cls)
-                
+
+            drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
+
             cls_retention_mask = self._prob_mask_like(x.shape[0], 1-drop_cls_prob, x.device).unsqueeze(-1)
             cls_embed = torch.where(
                 cls_retention_mask,
