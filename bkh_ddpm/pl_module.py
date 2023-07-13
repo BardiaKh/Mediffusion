@@ -98,7 +98,7 @@ class DiffusionPLModule(bpu.BKhModule):
 
     @torch.inference_mode()
     def get_cls_embedding(self, cls):
-        return self.model.class_embed(cls)
+        return self.model.class_embed(cls.to(device=self.device, dtype=self.dtype))
 
     @torch.inference_mode()
     def forward_features(self, x_start, noise=None, return_dict=True):
