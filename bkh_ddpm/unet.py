@@ -665,7 +665,7 @@ class UNetModel(nn.Module):
                 assert cls.shape == (x.shape[0],self.num_classes)
                 cls_embed = self.class_embed(cls)
                 
-            cls_retention_mask = self._prob_mask_like(x.shape[0], 1-drop_cls_prob, cls.device).unsqueeze(-1)
+            cls_retention_mask = self._prob_mask_like(x.shape[0], 1-drop_cls_prob, timesteps.device).unsqueeze(-1)
             cls_embed = torch.where(
                 cls_retention_mask,
                 cls_embed,
