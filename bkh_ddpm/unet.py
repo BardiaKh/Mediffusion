@@ -657,22 +657,20 @@ class UNetModel(nn.Module):
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels).to(dtype=x.dtype))
 
         if self.num_classes > 0:
-            if cls is None and cls_embed is None:
-                cls_embed = self.null_cls_embed.to(dtype=timesteps.dtype, device=timesteps.device)
-            elif cls is None and cls_embed is not None:
-                cls_embed = cls_embed.to(timesteps.dtype)
-            else:
-                drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
-                if cls_embed is None:
-                    assert cls.shape == (x.shape[0],self.num_classes)
-                    cls_embed = self.class_embed(cls)
-                if drop_cls_prob > 0:
-                    cls_mask = self._prob_mask_like(x.shape[0], 1-drop_cls_prob, cls.device).unsqueeze(-1)
-                    cls_embed = torch.where(
-                        cls_mask,
-                        cls_embed,
-                        self.null_cls_embed.to(cls.dtype)
-                    )
+            if cls is None and cls_embed is None: # usually the case for DDIM inversion
+                drop_cls_prob = 1.0
+
+            drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
+            if cls_embed is None:
+                assert cls.shape == (x.shape[0],self.num_classes)
+                cls_embed = self.class_embed(cls)
+                
+            cls_retention_mask = self._prob_mask_like(x.shape[0], 1-drop_cls_prob, cls.device).unsqueeze(-1)
+            cls_embed = torch.where(
+                cls_retention_mask,
+                cls_embed,
+                self.null_cls_embed.to(cls.dtype)
+            )
 
             emb = emb + cls_embed
 
@@ -690,7 +688,7 @@ class UNetModel(nn.Module):
         
         return h
 
-    def forward_with_cond_scale(self, x, timesteps, cls=None, cond_scale=0, phi=0.7, **kwargs):
+    def forward_with_cond_scale(self, x, timesteps, cls=None, cls_embed=None, cond_scale=0, phi=0.7):
         """model forward with conditional scale (used in inference)
 
         Args:
@@ -703,20 +701,31 @@ class UNetModel(nn.Module):
         Returns:
             _type_: model outputs after conditioning
         """
-        logits = self(x, timesteps, cls, drop_cls_prob=0, **kwargs)
         if cond_scale == 0:
-            return logits
-
-        null_logits = self(x, timesteps, cls, drop_cls_prob=1, **kwargs)
-        ccf_g = logits + (logits - null_logits) * cond_scale
-        
-        # Rescale classifier-free guidance
-        sigma_pos = torch.std(logits)
-        sigma_ccf_g = torch.std(ccf_g)
-        rescaled = ccf_g * (sigma_pos / sigma_ccf_g)
-        final = phi * rescaled + (1 - phi) * ccf_g
-        
-        return final
+            return self(x, timesteps, cls, cls_embed=cls_embed, drop_cls_prob=0)
+        else:
+            if cls is not None and cls_embed is None:
+                cls_embed = self.class_embed(cls)
+            elif cls_embed is not None:
+                cls_embed = cls_embed
+            else:
+                cls_embed = self.null_cls_embed.to(x.dtype)
+                
+            cls_embed = torch.cat([cls_embed, self.null_cls_embed.to(cls.dtype)], dim=0)
+            x = torch.cat([x, x], dim=0)
+            timesteps = torch.cat([timesteps, timesteps], dim=0)
+            out = self(x, timesteps, cls=None, drop_cls_prob=0, cls_embed=cls_embed)
+            logits, null_logits = torch.chunk(out, 2, dim=0)
+            
+            ccf_g = logits + (logits - null_logits) * cond_scale
+            
+            # Rescale classifier-free guidance (https://arxiv.org/abs/2305.08891)
+            sigma_pos = torch.std(logits)
+            sigma_ccf_g = torch.std(ccf_g)
+            rescaled = ccf_g * (sigma_pos / sigma_ccf_g)
+            final = phi * rescaled + (1 - phi) * ccf_g
+            
+            return final
 
     def _prob_mask_like(self, shape, prob, device):
         """generate a mask with prob

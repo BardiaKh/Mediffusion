@@ -214,7 +214,7 @@ class DiffusionPLModule(bpu.BKhModule):
             self.logger.log_image(key="validation samples", images=imgs_to_log)
 
     @torch.inference_mode()
-    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None, post_process_fn=None, clip_denoised=True):            
+    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None, post_process_fn=None):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
         if model_kwargs is None:
             model_kwargs = {"cls": None}
@@ -223,6 +223,7 @@ class DiffusionPLModule(bpu.BKhModule):
             if model_kwargs[key] is not None:
                 model_kwargs[key] = model_kwargs[key].to(device=self.device, dtype=self.dtype)
         
+        clip_denoised = True
         if inference_protocol == "DDPM":
             solver = DDPMSolver(self.diffusion)
         elif inference_protocol.startswith("DDIM"):
@@ -231,6 +232,7 @@ class DiffusionPLModule(bpu.BKhModule):
         elif inference_protocol.startswith("IDDIM"):
             num_steps = int(inference_protocol[len("IDDIM"):])
             solver = InverseDDIMSolver(self.diffusion, num_steps=num_steps)
+            clip_denoised = False
         elif inference_protocol.startswith("PNMD"):
             num_steps = int(inference_protocol[len("PNMD"):])
             solver = PNMDSolver(self.diffusion, num_steps=num_steps)
