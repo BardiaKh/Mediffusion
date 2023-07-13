@@ -712,7 +712,10 @@ class UNetModel(nn.Module):
             else:
                 cls_embed = self.null_cls_embed.to(x.dtype)
                 
-            cls_embed = torch.cat([cls_embed, self.null_cls_embed.to(x.dtype)], dim=0)
+            # repeat null_cls_embed along batch dimension before concatenating
+            null_cls_embed = self.null_cls_embed.repeat(x.shape[0], 1).to(x.dtype)
+            cls_embed = torch.cat([cls_embed, null_cls_embed], dim=0)
+
             x = torch.cat([x, x], dim=0)
             timesteps = torch.cat([timesteps, timesteps], dim=0)
             out = self(x, timesteps, cls=None, drop_cls_prob=0, cls_embed=cls_embed)
