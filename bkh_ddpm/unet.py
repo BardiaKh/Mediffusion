@@ -76,7 +76,6 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
                 x = layer(x)
         return x
 
-
 class Upsample(nn.Module):
     """
     An upsampling layer with an optional convolution.
