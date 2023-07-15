@@ -118,7 +118,7 @@ class DiffusionPLModule(bpu.BKhModule):
         for step in self.feature_extractor_steps:
             t = self.timestep_map.gather(-1, torch.tensor([step]).long()).to(self.device)
             x_t = self.diffusion.q_sample(x_start, t, noise=noise).to(dtype=x_start.dtype)
-            _, features = self.feature_extractor(x_t, t, model_kwargs=model_kwargs)
+            _, features = self.feature_extractor(x_t, t, **model_kwargs)
 
             all_features[step] = {}
             
