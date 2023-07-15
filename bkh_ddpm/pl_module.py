@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import bkh_pytorch_utils as bpu
 from tqdm import tqdm
-from torchvision.models import feature_extraction 
+import torchextractor as tx
 from functools import partial
 from omegaconf import OmegaConf
 
@@ -92,7 +92,7 @@ class DiffusionPLModule(bpu.BKhModule):
         block_names = []
         for block in blocks:
             block_names.append(f"output_blocks.{block}")
-        self.feature_extractor = feature_extraction.create_feature_extractor(self.model, block_names)
+        self.feature_extractor = tx.Extractor(self.model, block_names)
         self.feature_extractor_steps = sorted(steps)
         
     def unset_feature_extractor(self):
@@ -118,7 +118,7 @@ class DiffusionPLModule(bpu.BKhModule):
         for step in self.feature_extractor_steps:
             t = self.timestep_map.gather(-1, torch.tensor([step]).long()).to(self.device)
             x_t = self.diffusion.q_sample(x_start, t, noise=noise).to(dtype=x_start.dtype)
-            features = self.feature_extractor(x_t, t, model_kwargs=model_kwargs)
+            _, features = self.feature_extractor(x_t, t, model_kwargs=model_kwargs)
 
             all_features[step] = {}
             
