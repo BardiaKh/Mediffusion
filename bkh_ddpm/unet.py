@@ -649,7 +649,7 @@ class UNetModel(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
 
-        if torch.is_grad_enabled(): # only check if we're in training mode
+        if self.training: # only check if we're in training mode
             assert (cls is not None) == (
                 self.num_classes > 0
             ), "must specify cls if and only if the model is class-conditional"

@@ -89,7 +89,6 @@ class DiffusionPLModule(bpu.BKhModule):
         return self.model(x, t, **kwargs)
 
     def setup_feature_extractor(self, steps, blocks):
-        assert self.task_type == "unsupervised", "Feature extractor is only supported for unsupervised tasks"
         block_names = []
         for block in blocks:
             block_names.append(f"output_blocks.{block}")
@@ -105,8 +104,7 @@ class DiffusionPLModule(bpu.BKhModule):
         return self.model.class_embed(cls.to(device=self.device, dtype=self.dtype))
 
     @torch.inference_mode()
-    def forward_features(self, x_start, noise=None, return_dict=True):
-        assert self.task_type == "unsupervised", "Feature extractor is only supported for unsupervised tasks (for now)"
+    def forward_features(self, x_start, model_kwargs = None, noise=None, return_dict=True):
         assert self.feature_extractor_steps is not None, "Feature extractor is not setup, run setup_feature_extractor() first!"
 
         x_start = x_start.to(self.device)
@@ -120,7 +118,7 @@ class DiffusionPLModule(bpu.BKhModule):
         for step in self.feature_extractor_steps:
             t = self.timestep_map.gather(-1, torch.tensor([step]).long()).to(self.device)
             x_t = self.diffusion.q_sample(x_start, t, noise=noise).to(dtype=x_start.dtype)
-            features = self.feature_extractor(x_t, t)
+            features = self.feature_extractor(x_t, t, model_kwargs=model_kwargs)
 
             all_features[step] = {}
             
