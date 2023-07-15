@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import bkh_pytorch_utils as bpu
 from tqdm import tqdm
-import torchextractor as tx
+from torchvision.models import feature_extraction 
 from functools import partial
 from omegaconf import OmegaConf
 
@@ -93,8 +93,12 @@ class DiffusionPLModule(bpu.BKhModule):
         block_names = []
         for block in blocks:
             block_names.append(f"output_blocks.{block}")
-        self.feature_extractor = tx.Extractor(self.model, block_names)
+        self.feature_extractor = feature_extraction.create_feature_extractor(self.model, block_names)
         self.feature_extractor_steps = sorted(steps)
+        
+    def unset_feature_extractor(self):
+        self.feature_extractor = None
+        self.feature_extractor_steps = None
 
     @torch.inference_mode()
     def get_cls_embedding(self, cls):
@@ -102,7 +106,7 @@ class DiffusionPLModule(bpu.BKhModule):
 
     @torch.inference_mode()
     def forward_features(self, x_start, noise=None, return_dict=True):
-        assert self.task_type == "unsupervised", "Feature extractor is only supported for unsupervised tasks"
+        assert self.task_type == "unsupervised", "Feature extractor is only supported for unsupervised tasks (for now)"
         assert self.feature_extractor_steps is not None, "Feature extractor is not setup, run setup_feature_extractor() first!"
 
         x_start = x_start.to(self.device)
@@ -116,7 +120,7 @@ class DiffusionPLModule(bpu.BKhModule):
         for step in self.feature_extractor_steps:
             t = self.timestep_map.gather(-1, torch.tensor([step]).long()).to(self.device)
             x_t = self.diffusion.q_sample(x_start, t, noise=noise).to(dtype=x_start.dtype)
-            model_output, features = self.feature_extractor(x_t, t)
+            features = self.feature_extractor(x_t, t)
 
             all_features[step] = {}
             
