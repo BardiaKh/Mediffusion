@@ -53,3 +53,4 @@ model:
   # conditions
   num_classes: 0
   concat_channels: 1
+  missing_class_value: null

@@ -70,7 +70,7 @@ class DiffusionPLModule(bpu.BKhModule):
         
         self.model_input_shape = (
             self.config.model.in_channels - self.config.model.concat_channels,
-             *[self.config.model.input_size]*self.config.model.dims if isinstance(self.config.model.input_size, int) else self.config.model.input_size
+            *([self.config.model.input_size]*self.config.model.dims if isinstance(self.config.model.input_size, int) else self.config.model.input_size),
         )
         
         self.model = UNetModel(**self.config.model)
