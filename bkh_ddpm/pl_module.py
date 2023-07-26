@@ -2,7 +2,7 @@ from .diffusion_base import GaussianDiffusionBase, ModelMeanType, ModelVarType, 
 from .solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
 from .utils.pl import get_obj_from_str
-from .unet import UNetModel, SuperResModel
+from .unet import UNetModel
 import torch
 import numpy as np
 import bkh_pytorch_utils as bpu
@@ -43,7 +43,6 @@ class DiffusionPLModule(bpu.BKhModule):
         OmegaConf.update(self.config, "batch_size", self.batch_size, merge=False)
         self.save_hyperparameters(self.config)
         
-        self.task_type = self.config.diffusion.task_type
         self.inference_protocol = self.config.inference.protocol
 
         self.lr = self.config.optimizer.lr
@@ -69,16 +68,17 @@ class DiffusionPLModule(bpu.BKhModule):
             loss_type = LossType[self.config.diffusion.loss_type],
         )
         
-        self.model_input_shape = (self.config.model.in_channels, *[self.config.model.input_size]*self.config.model.dims) # excluding batch dimension
+        self.model_input_shape = (
+            self.config.model.in_channels - self.config.model.concat_channels,
+             *[self.config.model.input_size]*self.config.model.dims if isinstance(self.config.model.input_size, int) else self.config.model.input_size
+        )
         
-        if self.task_type == "unsupervised":
-            self.model = UNetModel(**self.config.model)
-        elif self.task_type.startswith("superres"):
-            self.model = SuperResModel(**self.config.model)
+        self.model = UNetModel(**self.config.model)
 
         self.timestep_scheduler = UniformSampler(self.diffusion.num_timesteps, self.timestep_map)
 
         self.class_conditioned = False if self.config.model.num_classes == 0 else True
+        self.concat_conditioned = False if self.config.model.concat_channels == 0  else True
         
         if not self.class_conditioned:
             self.classifier_cond_scale = 0 # classifier_cond_scale 0: unconditional | classifier_cond_scale None: training
@@ -138,57 +138,36 @@ class DiffusionPLModule(bpu.BKhModule):
 
     def training_step(self, batch, batch_idx):
         x_start = batch["img"]
+
         cls = batch["cls"] if self.class_conditioned else None
+        concat = batch['concat'] if self.concat_conditioned else None
+
         batch_size = x_start.shape[0]
         ts, t_weights = self.timestep_scheduler.sample(batch_size=batch_size, device=x_start.device)
         noise = torch.randn_like(x_start).to(device = self.device, dtype=x_start.dtype)
         
-        model_kwargs = {"cls": cls}
-        if self.task_type.startswith("superres"):
-            low_res_img = batch["low_res_img"]
-            model_kwargs["low_res"] = low_res_img
+        model_kwargs = {"cls": cls, "concat": concat}
 
         loss_terms = self.diffusion.training_losses(model=self.model, x_start=x_start, t=ts, noise=noise, model_kwargs=model_kwargs)
 
         self.log(f'train_loss', loss_terms['loss'].mean(), on_epoch=True, on_step=True, prog_bar=False)
-        # for key in terms:
-        #     losses.append(terms[key].float().mean())
-        #     self.log(f'train_{key}', losses[key], on_epoch=True, on_step=True, prog_bar=False)
 
         return loss_terms['loss'].mean()
 
     @torch.inference_mode()
     def validation_step(self, batch, batch_idx):
         real_imgs = batch["img"]
+
         cls = batch["cls"] if self.class_conditioned else None
+        concat = batch['concat'] if self.concat_conditioned else None
+        
         batch_size = real_imgs.shape[0]
 
         assert len(real_imgs.shape)==4 or (len(real_imgs.shape)==5 and batch_size==1), f"expected 4D (with any batch size) or 5D tensor(with batch size 1), got {real_imgs.shape}"
 
         init_noise = torch.randn(batch_size,*(self.model_input_shape), device=self.device, dtype=real_imgs.dtype)
 
-        model_kwargs = {"cls": cls}
-        if self.task_type.startswith("superres"):
-            low_res_img = batch["low_res_img"]
-            model_kwargs["low_res"] = low_res_img
-
-            imgs_to_log = []
-            if self.config.model.dims == 2:
-                low_res_imgs_tuple = low_res_img.cpu().split(1, dim=0)
-                low_res_imgs_tuple = [img.squeeze(0) for img in low_res_imgs_tuple]
-            elif self.config.model.dims == 3:
-                low_res_img = low_res_img.permute(0,4,1,2,3)                # (B, D, C, H, W)
-                low_res_img = low_res_img.view(-1, low_res_img.shape[2:])   # (B*D, C, H, W)
-                low_res_img = low_res_img.split(1, dim=0)                   # [(1, C, H, W)] * B*D
-                low_res_img = [img.squeeze(0) for img in low_res_img]       # [(C, H, W)] * B*D
-            
-            for i,img in enumerate(low_res_imgs_tuple):
-                img = img.squeeze(0).numpy()
-                img = (img + 1) * 127.5
-                img = img.clip(0, 255).astype(np.uint8)
-                img = img.transpose(1,0)
-                imgs_to_log.append(img)
-            self.logger.log_image(key="low-res samples", images=imgs_to_log)
+        model_kwargs = {"cls": cls, "concat": concat}
 
         imgs = self.predict(init_noise, inference_protocol=self.inference_protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
 
@@ -218,8 +197,6 @@ class DiffusionPLModule(bpu.BKhModule):
     @torch.inference_mode()
     def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None, post_process_fn=None, clip_denoised=True):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
-        if model_kwargs is None:
-            model_kwargs = {"cls": None}
 
         for key in model_kwargs:
             if model_kwargs[key] is not None:

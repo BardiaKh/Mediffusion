@@ -416,6 +416,10 @@ class UNetModel(nn.Module):
     :param dims: determines if the signal is 1D, 2D, or 3D.
     :param num_classes: if specified (as an int), then this model will be
         class-conditional with `num_classes` classes.
+    :param concat_channels: if specified (as an int), then this model will
+        concatenate the concat vector to the input.
+    :param missing_class_value: if specified, then this value will be replaced by
+        a learned parameter. This is useful for missing classes in the dataset.
     :param guidance_drop_prob: if > 0, then then use classifier-free
         guidance with the given scale.
     :param use_checkpoint: use gradient checkpointing to reduce memory usage.
@@ -444,6 +448,8 @@ class UNetModel(nn.Module):
         channel_mult=(1, 2, 4, 8),
         conv_resample=True,
         num_classes=0,
+        concat_channels = 0,
+        missing_class_value = None,
         guidance_drop_prob=0,
         use_checkpoint=False,
         num_heads=1,
@@ -471,12 +477,17 @@ class UNetModel(nn.Module):
         self.channel_mult = channel_mult
         self.conv_resample = conv_resample
         self.num_classes = num_classes
+        self.concat_channels = concat_channels
         self.guidance_drop_prob = guidance_drop_prob
         self.use_checkpoint = use_checkpoint
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
         self.scale_skip_connection = scale_skip_connection
+        self.missing_class_value = missing_class_value
+        
+        if missing_class_value is not None:
+            self.missing_class_param = torch.nn.Parameter(torch.randn(1))
 
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
@@ -638,7 +649,7 @@ class UNetModel(nn.Module):
             zero_module(conv_nd(dims, input_ch, out_channels, 3, padding=1)),
         )
 
-    def forward(self, x, timesteps, cls=None, drop_cls_prob=None, cls_embed=None):
+    def forward(self, x, timesteps, cls=None, cls_embed=None, concat=None, drop_cls_prob=None):
         """
         Apply the model to an input batch.
 
@@ -653,6 +664,8 @@ class UNetModel(nn.Module):
                 self.num_classes > 0
             ), "must specify cls if and only if the model is class-conditional"
 
+        assert (concat is None) or (concat.shape[1] == self.concat_channels), "Number of concat channels do not match with initialized configuration."
+
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels).to(dtype=x.dtype))
 
         if self.num_classes > 0:
@@ -661,6 +674,14 @@ class UNetModel(nn.Module):
                 drop_cls_prob = 0.0
             elif cls_embed is None:
                 assert cls.shape == (x.shape[0],self.num_classes)
+
+                if self.missing_class_value is not None:
+                    cls = torch.where(
+                        cls == self.missing_class_value, 
+                        self.missing_class_param, 
+                        cls
+                    )
+
                 cls_embed = self.class_embed(cls)
 
             drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
@@ -674,7 +695,7 @@ class UNetModel(nn.Module):
 
             emb = emb + cls_embed
 
-        h = x
+        h = x if concat is None else torch.cat([x,concat], dim=1)
         hs = []
         for module in self.input_blocks:
             h = module(h, emb)
@@ -688,7 +709,7 @@ class UNetModel(nn.Module):
         
         return h
 
-    def forward_with_cond_scale(self, x, timesteps, cls=None, cls_embed=None, cond_scale=0, phi=0.7):
+    def forward_with_cond_scale(self, x, timesteps, cls=None, cls_embed=None, concat=None, cond_scale=0, phi=0.7):
         """model forward with conditional scale (used in inference)
 
         Args:
@@ -702,7 +723,7 @@ class UNetModel(nn.Module):
             _type_: model outputs after conditioning
         """
         if cond_scale == 0:
-            return self(x, timesteps, cls, cls_embed=cls_embed, drop_cls_prob=0)
+            return self(x, timesteps, cls, cls_embed=cls_embed, concat=concat, drop_cls_prob=0)
         else:
             if cls is not None and cls_embed is None:
                 cls_embed = self.class_embed(cls)
@@ -717,7 +738,7 @@ class UNetModel(nn.Module):
 
             x = torch.cat([x, x], dim=0)
             timesteps = torch.cat([timesteps, timesteps], dim=0)
-            out = self(x, timesteps, cls=None, drop_cls_prob=0, cls_embed=cls_embed)
+            out = self(x, timesteps, cls=None, drop_cls_prob=0, cls_embed=cls_embed, concat=concat)
             logits, null_logits = torch.chunk(out, 2, dim=0)
             
             ccf_g = logits + (logits - null_logits) * cond_scale
@@ -747,22 +768,3 @@ class UNetModel(nn.Module):
             return torch.zeros(shape, device = device, dtype = torch.bool)
         else:
             return torch.zeros(shape, device = device).float().uniform_(0, 1) < prob
-
-class SuperResModel(UNetModel):
-    """
-    A UNetModel that performs super-resolution.
-
-    Expects an extra kwarg `low_res` to condition on a low-resolution image.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def forward(self, x, timesteps, low_res=None, **kwargs):
-        _, _, new_height, new_width = x.shape
-        with torch.no_grad():
-            upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
-            x = torch.cat([x, upsampled], dim=1)
-            
-        return super().forward(x, timesteps, **kwargs)
-

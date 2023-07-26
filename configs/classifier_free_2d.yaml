@@ -6,7 +6,6 @@ diffusion:
     beta_start: 0.0001
     beta_end: 0.02
     cosine_s: 0.008
-  task_type: unsupervised
   timestep_respacing: null
   mean_type: EPSILON
   var_type: LEARNED_RANGE
@@ -53,5 +52,7 @@ model:
   use_new_attention_order: false
   use_scale_shift_norm: true
   scale_skip_connection: false
+  # conditions
   num_classes: 24
+  concat_channels: 0
   guidance_drop_prob: 0.1
