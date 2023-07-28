@@ -175,7 +175,7 @@ class DiffusionPLModule(bpu.BKhModule):
             imgs = torch.stack(imgs, dim=0)                     # (B, C, H, W, D)
             imgs = imgs[:,0:1,:,:,:]                            # C:1
             imgs = imgs.permute(0,4,1,2,3)                      # (B, D, C, H, W)
-            cls = cls.repeat_interleave(imgs.shape[1])          # (B*D, C)
+            cls = cls.repeat(imgs.shape[1], 1)                  # (B*D, C)
             imgs = imgs.reshape(-1, *tuple(imgs.shape[2:]))     # (B*D, C, H, W)
             imgs = imgs.split(1, dim=0)                         # [(1, C, H, W)] * B*D
             imgs = [img.squeeze(0) for img in imgs]             # [(C, H, W)] * B*D
