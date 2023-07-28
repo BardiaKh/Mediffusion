@@ -658,7 +658,6 @@ class UNetModel(nn.Module):
         :param cls: an [N] Tensor of labels, if class-conditional.
         :return: an [N x C x ...] Tensor of outputs.
         """
-
         if torch.is_grad_enabled(): # only check if we're in training mode
             assert (cls is not None) == (
                 self.num_classes > 0
@@ -737,6 +736,9 @@ class UNetModel(nn.Module):
             cls_embed = torch.cat([cls_embed, null_cls_embed], dim=0)
 
             x = torch.cat([x, x], dim=0)
+            if concat is not None:
+                concat = torch.cat([concat, concat], dim=0)
+                
             timesteps = torch.cat([timesteps, timesteps], dim=0)
             out = self(x, timesteps, cls=None, drop_cls_prob=0, cls_embed=cls_embed, concat=concat)
             logits, null_logits = torch.chunk(out, 2, dim=0)
