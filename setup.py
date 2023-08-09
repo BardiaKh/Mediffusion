@@ -14,7 +14,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        "bkh_pytorch_utils @ git+ssh://git@github.com/BardiaKh/PytorchUtils.git'"
+        "git+https://github.com/BardiaKh/PytorchUtils.git@42eba26",
         "bkh_pytorch_utils>=0.8.0",
         "torchextractor>=0.3.0",
         "OmegaConf>=2.0.0",
