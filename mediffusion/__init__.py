@@ -1,1 +1,1 @@
-from .pl_module import DiffusionPLModule
+from .ddpm import DiffusionModule

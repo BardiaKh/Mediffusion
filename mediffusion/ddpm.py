@@ -1,8 +1,8 @@
-from .diffusion_base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
-from .solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSolver
+from .diffusion.base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
+from .diffusion.solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
 from .utils.pl import get_obj_from_str
-from .unet import UNetModel
+from .models.unet import UNetModel
 import torch
 import numpy as np
 import bkh_pytorch_utils as bpu
@@ -11,7 +11,7 @@ import torchextractor as tx
 from functools import partial
 from omegaconf import OmegaConf
 
-class DiffusionPLModule(bpu.BKhModule):
+class DiffusionModule(bpu.BKhModule):
     def __init__(
         self,
         config_file,

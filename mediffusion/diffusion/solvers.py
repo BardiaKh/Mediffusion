@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 from tqdm import tqdm
-from .diffusion_base import GaussianDiffusionBase
-from .utils.diffusion import get_respaced_betas
-from .utils.solvers import extract_diffusion_args
+from .base import GaussianDiffusionBase
+from ..utils.diffusion import get_respaced_betas
+from ..utils.solvers import extract_diffusion_args
 
 class SolverBase(GaussianDiffusionBase):
     def __init__(self, **diffusion_params):

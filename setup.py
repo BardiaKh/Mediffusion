@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="mediffusion",
-    version="0.4.2",
+    version="0.5.0",
     author="Bardia Khosravi",
     author_email="bardiakhosravi95@gmail.com",
     description="Diffusion Models for Medical Imaging",
@@ -14,6 +14,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
+        "bkh_pytorch_utils @ git+ssh://git@github.com/BardiaKh/PytorchUtils.git'"
         "bkh_pytorch_utils>=0.8.0",
         "torchextractor>=0.3.0",
         "OmegaConf>=2.0.0",
