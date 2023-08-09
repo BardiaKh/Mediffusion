@@ -16,8 +16,8 @@ optimizer:
   type: bkh_pytorch_utils.Lion
 
 inference:
-  classifier_cond_scale: 0
-  inference_protocol: DDIM100
+  classifier_cond_scale: 4
+  protocol: DDIM100
 
 model:
   input_size: 1024
