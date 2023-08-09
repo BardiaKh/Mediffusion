@@ -22,15 +22,8 @@ inference:
 model:
   input_size: 1024
   dims: 2
-  attention_resolutions: 
-  - 32
-  channel_mult:
-  - 1
-  - 1
-  - 2
-  - 2
-  - 4
-  - 4
+  attention_resolutions: [32]
+  channel_mult: [1, 1, 2, 2, 4, 4]
   dropout: 0.0
   in_channels: 2
   out_channels: 2
@@ -38,18 +31,13 @@ model:
   num_head_channels: -1
   num_heads: 4
   num_heads_upsample: -1
-  num_res_blocks: 
-  - 2
-  - 2
-  - 2
-  - 2
-  - 4
-  - 4
+  num_res_blocks: [2, 2, 2, 2, 4, 4]
   resblock_updown: false
   use_checkpoint: false
   use_new_attention_order: false
   use_scale_shift_norm: true
   scale_skip_connection: false
+  
   # conditions
   num_classes: 0
   concat_channels: 1
