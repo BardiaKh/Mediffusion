@@ -38,7 +38,11 @@ class DiffusionModule(bpu.BKhModule):
             val_batch_size=val_batch_size
         )
 
-        self.config = OmegaConf.load(config_file)
+        default_config_file = './default_config/default.yaml'
+        default_config = OmegaConf.load(default_config_file)
+        user_config = OmegaConf.load(config_file)
+        self.config = OmegaConf.merge(default_config, user_config)
+
         # add batch size to config just for logging purposes
         OmegaConf.update(self.config, "batch_size", self.batch_size, merge=False)
         self.save_hyperparameters(self.config)
