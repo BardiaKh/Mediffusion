@@ -1,12 +1,12 @@
 import setuptools
 
 setuptools.setup(
-    name="bkh_ddpm",
+    name="mediffusion",
     version="0.4.2",
     author="Bardia Khosravi",
     author_email="bardiakhosravi95@gmail.com",
-    description="Personal take on DDPMs",
-    url="https://github.com/BardiaKh/DDPM",
+    description="Diffusion Models for Medical Imaging",
+    url="https://github.com/BardiaKh/MeDiffusion",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
