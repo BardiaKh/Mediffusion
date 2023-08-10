@@ -1,4 +1,4 @@
-# MeDiffusion
+# Mediffusion
 
 TODO:
 

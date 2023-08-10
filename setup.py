@@ -6,7 +6,7 @@ setuptools.setup(
     author="Bardia Khosravi",
     author_email="bardiakhosravi95@gmail.com",
     description="Diffusion Models for Medical Imaging",
-    url="https://github.com/BardiaKh/MeDiffusion",
+    url="https://github.com/BardiaKh/Mediffusion",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
