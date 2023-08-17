@@ -3,6 +3,7 @@ from .diffusion.solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSo
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
 from .utils.pl import get_obj_from_str
 from .models.unet import UNetModel
+import os
 import torch
 import numpy as np
 import bkh_pytorch_utils as bpu
@@ -38,7 +39,9 @@ class DiffusionModule(bpu.BKhModule):
             val_batch_size=val_batch_size
         )
 
-        default_config_file = './default_config/default.yaml'
+        current_file_path = os.path.abspath(__file__)
+        current_directory = os.path.dirname(current_file_path)
+        default_config_file = os.path.join(current_directory, 'default_config', 'default.yaml')
         default_config = OmegaConf.load(default_config_file)
         user_config = OmegaConf.load(config_file)
         self.config = OmegaConf.merge(default_config, user_config)
