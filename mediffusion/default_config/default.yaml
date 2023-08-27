@@ -18,6 +18,7 @@ optimizer:
 inference:
   classifier_cond_scale: 4
   protocol: DDIM100
+  log_original: false
 
 model:
   input_size: 256

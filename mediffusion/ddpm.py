@@ -50,8 +50,6 @@ class DiffusionModule(bpu.BKhModule):
         OmegaConf.update(self.config, "batch_size", self.batch_size, merge=False)
         self.save_hyperparameters(self.config)
         
-        self.inference_protocol = self.config.inference.protocol
-
         self.lr = self.config.optimizer.lr
         self.optimizer_class = get_obj_from_str(self.config.optimizer.type)
 
@@ -176,13 +174,20 @@ class DiffusionModule(bpu.BKhModule):
 
         model_kwargs = {"cls": cls, "concat": concat}
 
-        imgs = self.predict(init_noise, inference_protocol=self.inference_protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
+        imgs = self.predict(init_noise, inference_protocol=self.config.inference.protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
+        
+        if self.config.inference.log_original:
+            self._log_img(real_imgs, cls)
+        
+        self._log_img(imgs, cls)
 
+    def _log_img(self, imgs, cls):
         if self.config.model.dims == 3:
             imgs = torch.stack(imgs, dim=0)                     # (B, C, H, W, D)
             imgs = imgs[:,0:1,:,:,:]                            # C:1
             imgs = imgs.permute(0,4,1,2,3)                      # (B, D, C, H, W)
-            cls = cls.repeat(imgs.shape[1], 1)                  # (B*D, C)
+            if self.class_conditioned:
+                cls = cls.repeat(imgs.shape[1], 1)              # (B*D, C)
             imgs = imgs.reshape(-1, *tuple(imgs.shape[2:]))     # (B*D, C, H, W)
             imgs = imgs.split(1, dim=0)                         # [(1, C, H, W)] * B*D
             imgs = [img.squeeze(0) for img in imgs]             # [(C, H, W)] * B*D

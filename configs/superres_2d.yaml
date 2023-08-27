@@ -18,6 +18,7 @@ optimizer:
 inference:
   classifier_cond_scale: 4
   protocol: DDIM100
+  log_original: true
 
 model:
   input_size: 1024
@@ -41,4 +42,5 @@ model:
   # conditions
   num_classes: 0
   concat_channels: 1
+  guidance_drop_prob: 0.1
   missing_class_value: null
