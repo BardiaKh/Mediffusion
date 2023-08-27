@@ -177,6 +177,8 @@ class DiffusionModule(bpu.BKhModule):
         imgs = self.predict(init_noise, inference_protocol=self.config.inference.protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
         
         if self.config.inference.log_original:
+            real_imgs = real_imgs.cpu().split(1, dim=0)
+            real_imgs = [img.squeeze(0) for img in real_imgs]
             self._log_img(real_imgs, cls, title = "real samples")
         
         self._log_img(imgs, cls, title = "generated samples")
