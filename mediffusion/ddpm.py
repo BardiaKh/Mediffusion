@@ -177,11 +177,11 @@ class DiffusionModule(bpu.BKhModule):
         imgs = self.predict(init_noise, inference_protocol=self.config.inference.protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
         
         if self.config.inference.log_original:
-            self._log_img(real_imgs, cls)
+            self._log_img(real_imgs, cls, title = "real samples")
         
-        self._log_img(imgs, cls)
+        self._log_img(imgs, cls, title = "generated samples")
 
-    def _log_img(self, imgs, cls):
+    def _log_img(self, imgs, cls, title="generated samples"):
         if self.config.model.dims == 3:
             imgs = torch.stack(imgs, dim=0)                     # (B, C, H, W, D)
             imgs = imgs[:,0:1,:,:,:]                            # C:1
@@ -204,9 +204,9 @@ class DiffusionModule(bpu.BKhModule):
             for i,c in enumerate(cls):
                 c = c.numpy().tolist()
                 caption.append(f"Class: {c}")
-            self.logger.log_image(key="validation samples", images=imgs_to_log, caption=caption)
+            self.logger.log_image(key=title, images=imgs_to_log, caption=caption)
         else:
-            self.logger.log_image(key="validation samples", images=imgs_to_log)
+            self.logger.log_image(key=title, images=imgs_to_log)
 
     @torch.inference_mode()
     def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None, post_process_fn=None, clip_denoised=True):            
