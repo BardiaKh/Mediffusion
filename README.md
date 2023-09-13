@@ -1,5 +1,3 @@
 # Mediffusion
 
-TODO:
-
-[] Refactor Enums for single class import
+Actively being documented. Please check back soon.
