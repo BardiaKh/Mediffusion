@@ -15,7 +15,7 @@ optimizer:
   lr: 0.00001
   type: bkh_pytorch_utils.Lion
 
-inference:
+validation:
   classifier_cond_scale: 4
   protocol: DDIM100
   log_original: false

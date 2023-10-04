@@ -88,7 +88,7 @@ class DiffusionModule(bpu.BKhModule):
         if not self.class_conditioned:
             self.classifier_cond_scale = 0 # classifier_cond_scale 0: unconditional | classifier_cond_scale None: training
         else:
-            self.classifier_cond_scale = self.config.inference.classifier_cond_scale
+            self.classifier_cond_scale = self.config.validation.classifier_cond_scale
         
     def forward(self, x, t, **kwargs):
         return self.model(x, t, **kwargs)
@@ -174,9 +174,9 @@ class DiffusionModule(bpu.BKhModule):
 
         model_kwargs = {"cls": cls, "concat": concat}
 
-        imgs = self.predict(init_noise, inference_protocol=self.config.inference.protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
+        imgs = self.predict(init_noise, inference_protocol=self.config.validation.protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
         
-        if self.config.inference.log_original:
+        if self.config.validation.log_original:
             real_imgs = real_imgs.cpu().split(1, dim=0)
             real_imgs = [img.squeeze(0) for img in real_imgs]
             self._log_img(real_imgs, cls, title = "real samples")
