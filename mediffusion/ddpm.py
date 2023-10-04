@@ -48,7 +48,6 @@ class DiffusionModule(bpu.BKhModule):
 
         # add batch size to config just for logging purposes
         OmegaConf.update(self.config, "batch_size", self.batch_size, merge=False)
-        self.save_hyperparameters(self.config)
         
         self.lr = self.config.optimizer.lr
         self.optimizer_class = get_obj_from_str(self.config.optimizer.type)
@@ -86,9 +85,9 @@ class DiffusionModule(bpu.BKhModule):
         self.concat_conditioned = False if self.config.model.concat_channels == 0  else True
         
         if not self.class_conditioned:
-            self.classifier_cond_scale = 0 # classifier_cond_scale 0: unconditional | classifier_cond_scale None: training
-        else:
-            self.classifier_cond_scale = self.config.validation.classifier_cond_scale
+            OmegaConf.update(self.config, "validation.classifier_cond_scale", 0, merge=False)
+
+        self.save_hyperparameters(self.config)
         
     def forward(self, x, t, **kwargs):
         return self.model(x, t, **kwargs)
@@ -143,7 +142,6 @@ class DiffusionModule(bpu.BKhModule):
 
     def training_step(self, batch, batch_idx):
         x_start = batch["img"]
-
         cls = batch["cls"] if self.class_conditioned else None
         concat = batch['concat'] if self.concat_conditioned else None
 
@@ -161,27 +159,33 @@ class DiffusionModule(bpu.BKhModule):
 
     @torch.inference_mode()
     def validation_step(self, batch, batch_idx):
-        real_imgs = batch["img"]
-
+        x_start = batch["img"]
         cls = batch["cls"] if self.class_conditioned else None
         concat = batch['concat'] if self.concat_conditioned else None
-        
-        batch_size = real_imgs.shape[0]
 
-        assert len(real_imgs.shape)==4 or (len(real_imgs.shape)==5 and batch_size==1), f"expected 4D (with any batch size) or 5D tensor(with batch size 1), got {real_imgs.shape}"
-
-        init_noise = torch.randn(batch_size,*(self.model_input_shape), device=self.device, dtype=real_imgs.dtype)
-
+        batch_size = x_start.shape[0]
         model_kwargs = {"cls": cls, "concat": concat}
+        noise = torch.randn_like(x_start).to(device=self.device, dtype=x_start.dtype)
 
-        imgs = self.predict(init_noise, inference_protocol=self.config.validation.protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.classifier_cond_scale)
+        if batch_idx == 0:
+            assert len(x_start.shape)==4 or (len(x_start.shape)==5 and batch_size==1), f"expected 4D (with any batch size) or 5D tensor(with batch size 1), got {x_start.shape}"
+
+            imgs = self.predict(noise, inference_protocol=self.config.validation.protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.config.validation.classifier_cond_scale)
+            
+            if self.config.validation.log_original:
+                x_start = x_start.cpu().split(1, dim=0)
+                x_start = [img.squeeze(0) for img in x_start]
+                self._log_img(x_start, cls, title = "real samples")
+            
+            self._log_img(imgs, cls, title = "generated samples")
         
-        if self.config.validation.log_original:
-            real_imgs = real_imgs.cpu().split(1, dim=0)
-            real_imgs = [img.squeeze(0) for img in real_imgs]
-            self._log_img(real_imgs, cls, title = "real samples")
+        ts, t_weights = self.timestep_scheduler.sample(batch_size=batch_size, device=x_start.device)
         
-        self._log_img(imgs, cls, title = "generated samples")
+        loss_terms = self.diffusion.training_losses(model=self.model, x_start=x_start, t=ts, noise=noise, model_kwargs=model_kwargs)
+
+        self.log(f'val_loss', loss_terms['loss'].mean(), on_epoch=True, on_step=False, prog_bar=False)
+
+        return {'val_loss': loss_terms['loss'].mean()}
 
     def _log_img(self, imgs, cls, title="generated samples"):
         if self.config.model.dims == 3:

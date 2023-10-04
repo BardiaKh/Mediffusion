@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="mediffusion",
-    version="0.5.6",
+    version="0.6.0",
     author="Bardia Khosravi",
     author_email="bardiakhosravi95@gmail.com",
     description="Diffusion Models for Medical Imaging",
