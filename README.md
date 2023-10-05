@@ -37,6 +37,19 @@ pip install git+https://github.com/BardiaKh/Mediffusion.git -u
 This will install all the necessary packages.
 
 ## Usage
+## Training Hyperparameters
+Before starting the training, it is recommended that you set up some global constants and environment variables:
+
+```python
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ['WANDB_API_KEY'] = "WANDB-API-KEY"
+
+TOTAL_IMAGE_SEEN = 40e6
+BATCH_SIZE = 36
+NUM_DEVICES = 2 # number of devices in CUDA_VISIBLE_DEVICES
+TRAIN_ITERATIONS = int(TOTAL_IMAGE_SEEN / (BATCH_SIZE * NUM_DEVICES))
+```
+
 ## Preparing Data
 
 To prepare the data, you need to create a dataset where each element is a dictionary. The dictionary should have the key "img" and may also contain additional keys like "cls" and "concat" depending on the type of condition. One way to do this is by using MONAI. Below is a sample code snippet:
@@ -63,9 +76,10 @@ transforms = mn.transforms.Compose([
 
 train_ds = Dataset(data=train_data_dicts, transform=transforms)  # Add your MONAI transforms here if needed
 valid_ds = Dataset(data=valid_data_dicts, transform=transforms)  # For demonstration, using the same data for validation
+train_sampler = torch.utils.data.RandomSampler(train_ds, replacement=True, num_samples=TOTAL_IMAGE_SEEN)
 ```
 
-At the end of this step, you should have `train_ds` and `val_ds`.
+At the end of this step, you should have `train_ds`, `val_ds` and `train_sampler`.
 
 ## Configuring Model
 
@@ -101,31 +115,24 @@ model = DiffusionModule(
     train_ds=train_ds,
     val_ds=valid_ds,
     dl_workers=2,
-    train_sampler=None,     # Replace if you're using a custom sampler
-    batch_size=32,          # Replace with your train batch size
-    val_batch_size=16       # Replace with your validation batch size (recommended size is half of batch_size)
+    train_sampler=train_sampler,
+    batch_size=32,               # train batch size
+    val_batch_size=16            # validation batch size (recommended size is half of batch_size)
 )
 ```
 
 ## Setting up Trainer
-
-Firstly, ensure that the `WANDB_API_KEY` is in your environment variables. You can add it using:
-
-```bash
-export WANDB_API_KEY=your-api-key-here
-```
-
-Afterward, you can set up the trainer using the `Trainer` class:
+You can set up the trainer using the `Trainer` class:
 
 ```python
 from mediffusion import Trainer
 
 trainer = Trainer(
-    max_steps=10000,
+    max_steps=TRAIN_ITERATIONS,
     val_check_interval=5000,
-    root_directory="./outputs",
-    precision="16-mixed",
-    devices=-1,
+    root_directory="./outputs", # where to save the weights and logs
+    precision="16-mixed",       # mixed precision training
+    devices=-1,                 # use all the devices in CUDA_VISIBLE_DEVICES
     nodes=1,
     wandb_project="Your_Project_Name",
     logger_instance="Your_Logger_Instance",
