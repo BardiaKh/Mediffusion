@@ -225,6 +225,16 @@ The `img` is the generated output based on the model's inference (`C:H:W(:D)`). 
 
 For more hands-on tutorials on how to effectively use this package, please check the `tutorials` folder in the GitHub repository. These tutorials provide step-by-step instructions, Colab notebooks, and explanations to help you get started with the software.
 
+## TO-DO
+
+The following features and improvements are currently on our development roadmap:
+
+- [ ] Cross-attention
+- [ ] DPM-Solver
+- [ ] VAE for LDM
+
+We are actively working on these features and they will be available in future releases.
+
 ## Issues and Contributions
 
 ### Issues
