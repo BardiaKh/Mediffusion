@@ -37,7 +37,7 @@ pip install git+https://github.com/BardiaKh/Mediffusion.git -u
 This will install all the necessary packages.
 
 ## Usage
-## Training Hyperparameters
+## 1. Training Hyperparameters
 Before starting the training, it is recommended that you set up some global constants and environment variables:
 
 ```python
@@ -50,7 +50,7 @@ NUM_DEVICES = 2 # number of devices in CUDA_VISIBLE_DEVICES
 TRAIN_ITERATIONS = int(TOTAL_IMAGE_SEEN / (BATCH_SIZE * NUM_DEVICES))
 ```
 
-## Preparing Data
+## 2. Preparing Data
 
 To prepare the data, you need to create a dataset where each element is a dictionary. The dictionary should have the key "img" and may also contain additional keys like "cls" and "concat" depending on the type of condition. One way to do this is by using MONAI. Below is a sample code snippet:
 
@@ -59,13 +59,11 @@ import monai as mn
 
 train_data_dicts = [
     {"img": "./image1.dcm", "cls": 2},
-    {"img": "./image2.dcm", "cls": 0},
-    # Add more data dictionaries
+    {"img": "./image2.dcm", "cls": 0}
 ]
 
 valid_data_dicts = [
-    {"img": "./image9.dcm", "cls": 1},
-    # Add more data dictionaries
+    {"img": "./image9.dcm", "cls": 1}
 ]
 
 transforms = mn.transforms.Compose([
@@ -74,34 +72,61 @@ transforms = mn.transforms.Compose([
     mn.transforms.ToTensorD(keys=["img","cls"], dtype=torch.float, track_meta=False),
 ])
 
-train_ds = Dataset(data=train_data_dicts, transform=transforms)  # Add your MONAI transforms here if needed
-valid_ds = Dataset(data=valid_data_dicts, transform=transforms)  # For demonstration, using the same data for validation
+train_ds = Dataset(data=train_data_dicts, transform=transforms) 
+valid_ds = Dataset(data=valid_data_dicts, transform=transforms)
 train_sampler = torch.utils.data.RandomSampler(train_ds, replacement=True, num_samples=TOTAL_IMAGE_SEEN)
 ```
 
 At the end of this step, you should have `train_ds`, `val_ds` and `train_sampler`.
 
-## Configuring Model
+## 3. Configuring Model
 
 ### Configuration Fields Explanation
 
-- **diffusion**: Configurations related to the diffusion process
-  - **timesteps**: The number of timesteps in the diffusion process.
-  - **schedule_name**: The name of the schedule (e.g., "cosine").
-  - **enforce_zero_terminal_snr**: A boolean indicating whether to enforce zero terminal Signal-to-Noise Ratio (SNR).
-  - **schedule_params**: Parameters for the schedule.
-  - **mean_type** and **var_type**: Types of mean and variance models.
-  - **loss_type**: The loss type to use (e.g., "MSE").
+Below is a table that provides descriptions for each element in the configuration file:
 
-- **optimizer**: Optimization configurations.
-  - **lr**: The learning rate for the optimizer.
-  - **type**: The type of optimizer to use.
+| Section    | Field                   | Description                                           |
+|------------|-------------------------|-------------------------------------------------------|
+| diffusion  | timesteps               | The number of timesteps in the diffusion process      |
+|            | schedule_name           | The name of the schedule (e.g., "cosine")             |
+|            | enforce_zero_terminal_snr | Whether to enforce zero terminal SNR (True/False)    |
+|            | schedule_params         | Parameters related to the diffusion schedule          |
+|            | -- beta_start           | Starting value for beta in the schedule               |
+|            | -- beta_end             | Ending value for beta in the schedule                 |
+|            | -- cosine_s             | Parameter for cosine schedule                         |
+|            | timestep_respacing      | Can be a list of respacings. For example, with 200 steps, [10,20] means in the first 100, get 10 samples and in the next 100, get 20 samples. |
+|            | mean_type               | Type of mean model (e.g., "VELOCITY")                 |
+|            | var_type                | Type of variance model (e.g., "LEARNED_RANGE")        |
+|            | loss_type               | The type of loss to use (e.g., "MSE")                 |
+| optimizer  | lr                      | Learning rate                                         |
+|            | type                    | The type of optimizer to use                          |
+| validation | classifier_cond_scale   | Classifier guidance scale for validation logging.     |
+|            | protocol                | Inference protocol for logging validation results     |
+|            | log_original            | Whether to log the original validation data (True/False)         |
+| model      | input_size              | The input size of the model. Can be an integer for square and cube images or a list of integers for specific axes, like [64, 64, 32] |
+|            | dims                    | Number of dimensions, 2 or 3 for 2D and 3D images     |
+|            | attention_resolutions   | List of resolutions for attention layers              |
+|            | channel_mult            | List of multipliers for each layer's channels         |
+|            | dropout                 | Dropout rate                                          |
+|            | in_channels             | Number of input channels (image channels + concat channels) |
+|            | out_channels            | Number of output channels (image channels or image channels * 2 if learning the variance) |
+|            | model_channels          | Number of convolution channels in the model           |
+|            | num_head_channels       | Number of attention head channels                     |
+|            | num_heads               | Number of attention heads                             |
+|            | num_heads_upsample      | Number of attention head after upsampling             |
+|            | num_res_blocks          | List of the number of residual blocks for each layer  |
+|            | resblock_updown         | Whether to use residual blocks for down/up sampling (True/False) |
+|            | use_checkpoint          | Whether to use checkpointing (True/False)             |
+|            | use_new_attention_order | Whether to use the new attention ordering (True/False) |
+|            | use_scale_shift_norm    | Whether to use scale-shift normalization (True/False) |
+|            | scale_skip_connection   | Whether to scaleskip connections (True/False)         |
+|            | num_classes             | Number of classes for conditioning                    |
+|            | concat_channels         | Number of concatenatong channels for conditioning (for super-resolution or inpainting) |
+|            | guidance_drop_prob      | Drop probability for the classifier free guidance scale training |
 
-- **validation**: Configurations for validation.
-  - **classifier_cond_scale**, **protocol**, **log_original**: Various validation-related settings.
+For sample configurations, please checkout the `sample_configs` folder.
 
-- **model**: The configurations for the neural network model.
-  - **input_size**, **dims**, **attention_resolutions**, etc: Parameters related to the architecture.
+**Note**: If a field is left out of the config file, the default value is infered based on this file: `mediffusion/default_config/default.yaml`.
 
 ### Instantiating Model
 
@@ -121,7 +146,7 @@ model = DiffusionModule(
 )
 ```
 
-## Setting up Trainer
+## 4. Setting up Trainer
 You can set up the trainer using the `Trainer` class:
 
 ```python
@@ -139,7 +164,7 @@ trainer = Trainer(
 )
 ```
 
-## Train!
+## 5. Train!
 
 Finally, to train your model, you simply call:
 
