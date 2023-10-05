@@ -124,7 +124,7 @@ Below is a table that provides descriptions for each element in the configuratio
 |            | concat_channels         | Number of concatenatong channels for conditioning (for super-resolution or inpainting) |
 |            | guidance_drop_prob      | Drop probability for the classifier free guidance scale training |
 
-For sample configurations, please checkout the `sample_configs` folder.
+For sample configurations, please checkout the `sample_configs` directory.
 
 **Note**: If a field is left out of the config file, the default value is infered based on this file: `mediffusion/default_config/default.yaml`.
 
@@ -146,7 +146,7 @@ model = DiffusionModule(
 )
 ```
 
-### 4. Setting up Trainer
+### 4. Setting Up Trainer
 You can set up the trainer using the `Trainer` class:
 
 ```python
@@ -164,13 +164,57 @@ trainer = Trainer(
 )
 ```
 
-### 5. Train!
+### 5. Training the Model
 
 Finally, to train your model, you simply call:
 
 ```python
 trainer.fit(model)
 ```
+
+## Prediction 
+### 1. Loading the Model
+
+First, import the `DiffusionModule` class and load the pre-trained model checkpoint. The model is then moved to the CUDA device and set to inference mode. Additionally, you may choose to enable half-precision for better performance:
+
+```python
+from mediffusion import DiffusionModule
+
+model = DiffusionModule("path/to/classifier_free_2d.yaml")
+model.load_ckpt("path/to/last_saved_checkpoint.cktp", ema=True)
+model.cuda().half()
+model.eval()
+```
+
+### 2. Preparing Input
+
+Prepare the noise and model keyword arguments. Here, `"cls"` specifies the class condition and is set to 0:
+
+```python
+import torch
+
+noise = torch.randn(1, 1, 256, 256)
+model_kwargs = {"cls": torch.tensor([0]).cuda().half()}
+```
+
+**Note**: You can use other keys like `concat` and/or `cls_embed`. To find out more, look at the `tutorials` directory.
+
+### 3. Making Predictions
+
+To make a prediction, use the `predict` method from the `DiffusionModule` class:
+
+```python
+img = model.predict(noise, model_kwargs=model_kwargs, classifier_cond_scale=4, inference_protocol="DDIM100")
+```
+
+- `noise`: The input noise tensor
+- `model_kwargs`: A dictionary containing additional model configurations (e.g., class conditions)
+- `classifier_cond_scale`: The scale used for the classifier free guidance condition during inference
+- `inference_protocol`: The inference protocol to be used (e.g., `"DDIM100"`)
+
+The `img` is the generated output based on the model's inference (`C:H:W(:D)`). To save the image, you need to transpose it first, due to the different axis conventions.
+
+**Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PNMD`. As an example, `"PNMD100"` means using the `PNMD` solver for `100` steps. 
 
 ## Citation
 
