@@ -204,7 +204,12 @@ model_kwargs = {"cls": torch.tensor([0]).cuda().half()}
 To make a prediction, use the `predict` method from the `DiffusionModule` class:
 
 ```python
-img = model.predict(noise, model_kwargs=model_kwargs, classifier_cond_scale=4, inference_protocol="DDIM100")
+img = model.predict(
+    noise, 
+    model_kwargs=model_kwargs, 
+    classifier_cond_scale=4, 
+    inference_protocol="DDIM100"
+)
 ```
 
 - `noise`: The input noise tensor
