@@ -31,7 +31,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 You can install the latest version from github using:
 
 ```bash
-pip install git+https://github.com/BardiaKh/Mediffusion.git -u
+pip install mediffusion
 ```
 
 This will install all the necessary packages.
