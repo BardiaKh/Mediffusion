@@ -36,8 +36,8 @@ pip install git+https://github.com/BardiaKh/Mediffusion.git -u
 
 This will install all the necessary packages.
 
-## Usage
-## 1. Training Hyperparameters
+## Training 
+### 1. Hyperparameters
 Before starting the training, it is recommended that you set up some global constants and environment variables:
 
 ```python
@@ -50,7 +50,7 @@ NUM_DEVICES = 2 # number of devices in CUDA_VISIBLE_DEVICES
 TRAIN_ITERATIONS = int(TOTAL_IMAGE_SEEN / (BATCH_SIZE * NUM_DEVICES))
 ```
 
-## 2. Preparing Data
+### 2. Preparing Data
 
 To prepare the data, you need to create a dataset where each element is a dictionary. The dictionary should have the key "img" and may also contain additional keys like "cls" and "concat" depending on the type of condition. One way to do this is by using MONAI. Below is a sample code snippet:
 
@@ -79,9 +79,9 @@ train_sampler = torch.utils.data.RandomSampler(train_ds, replacement=True, num_s
 
 At the end of this step, you should have `train_ds`, `val_ds` and `train_sampler`.
 
-## 3. Configuring Model
+### 3. Configuring Model
 
-### Configuration Fields Explanation
+#### Configuration Fields Explanation
 
 Below is a table that provides descriptions for each element in the configuration file:
 
@@ -128,7 +128,7 @@ For sample configurations, please checkout the `sample_configs` folder.
 
 **Note**: If a field is left out of the config file, the default value is infered based on this file: `mediffusion/default_config/default.yaml`.
 
-### Instantiating Model
+#### Instantiating Model
 
 You can instantiate the model using the configuration file and dataset as follows:
 
@@ -146,7 +146,7 @@ model = DiffusionModule(
 )
 ```
 
-## 4. Setting up Trainer
+### 4. Setting up Trainer
 You can set up the trainer using the `Trainer` class:
 
 ```python
@@ -164,7 +164,7 @@ trainer = Trainer(
 )
 ```
 
-## 5. Train!
+### 5. Train!
 
 Finally, to train your model, you simply call:
 
