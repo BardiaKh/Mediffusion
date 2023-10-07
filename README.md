@@ -252,7 +252,7 @@ If you're interested in actively participating in the development of this packag
 
 If you find this work useful, please consider citing the parent project:
 
-```
+```bibtex
 @article{KHOSRAVI2023107832,
     title = {Few-shot biomedical image segmentation using diffusion models: Beyond image generation},
     journal = {Computer Methods and Programs in Biomedicine},
