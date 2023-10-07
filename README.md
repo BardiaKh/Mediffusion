@@ -1,6 +1,8 @@
 # Mediffusion
 
-Actively being documented. Please check back soon.
+Diffusion models have significantly impacted the realm of image generation. In a bid to reduce the technical complexity, we aim to lower the entry barrier for the medical community. To achieve this, we have introduced *mediffusion*, a user-friendly diffusion package that can be effortlessly tailored to address medical problems with less than 20 lines of code. We have utilized various codebases, including [guided diffusion](https://github.com/openai/guided-diffusion) and [LDM](https://github.com/CompVis/latent-diffusion), enhancing their robustness for medical use cases. We plan to update this package regularly. Embracing the spirit of open science, we invite you to consider sharing  a demo notebook of your work should you choose to utilize this package.
+
+Happy Coding!
 
 ## Setup and Installation
 
@@ -221,7 +223,7 @@ The `img` is the generated output based on the model's inference (`C:H:W(:D)`). 
 
 **Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PNMD`. As an example, `"PNMD100"` means using the `PNMD` solver for `100` steps. 
 
-## Tutorials
+## Tutorials *(coming soon)*
 
 For more hands-on tutorials on how to effectively use this package, please check the `tutorials` folder in the GitHub repository. These tutorials provide step-by-step instructions, Colab notebooks, and explanations to help you get started with the software.
 
