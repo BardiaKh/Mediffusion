@@ -168,7 +168,7 @@ class DiffusionModule(bpu.BKhModule):
         noise = torch.randn_like(x_start).to(device=self.device, dtype=x_start.dtype)
 
         if batch_idx == 0:
-            assert len(x_start.shape)==4 or (len(x_start.shape)==5 and batch_size==1), f"expected 4D (with any batch size) or 5D tensor(with batch size 1), got {x_start.shape}"
+            assert len(x_start.shape)==4 or (len(x_start.shape)==5 and batch_size==1), f"expected 2D image (with any batch size) or 3D image (with batch size 1), got {x_start.shape}"
 
             imgs = self.predict(noise, inference_protocol=self.config.validation.protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.config.validation.classifier_cond_scale)
             
@@ -258,7 +258,7 @@ class DiffusionModule(bpu.BKhModule):
         for i in range(len(imgs)):
             imgs[i] = imgs[i].cpu()
 
-        return imgs
+        return imgs # [C, H, W, (D)] * B
 
     def configure_optimizers(self):
         if self.total_steps is None:
