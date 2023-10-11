@@ -74,8 +74,8 @@ transforms = mn.transforms.Compose([
     mn.transforms.ToTensorD(keys=["img","cls"], dtype=torch.float, track_meta=False),
 ])
 
-train_ds = Dataset(data=train_data_dicts, transform=transforms) 
-valid_ds = Dataset(data=valid_data_dicts, transform=transforms)
+train_ds = mn.data.Dataset(data=train_data_dicts, transform=transforms) 
+valid_ds = mn.data.Dataset(data=valid_data_dicts, transform=transforms)
 train_sampler = torch.utils.data.RandomSampler(train_ds, replacement=True, num_samples=TOTAL_IMAGE_SEEN)
 ```
 
@@ -182,8 +182,8 @@ First, import the `DiffusionModule` class and load the pre-trained model checkpo
 ```python
 from mediffusion import DiffusionModule
 
-model = DiffusionModule("path/to/classifier_free_2d.yaml")
-model.load_ckpt("path/to/last_saved_checkpoint.cktp", ema=True)
+model = DiffusionModule("./config.yaml")
+model.load_ckpt("./outputs/pl/last.ckpt", ema=True)
 model.cuda().half()
 model.eval()
 ```
