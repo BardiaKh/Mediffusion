@@ -1,5 +1,5 @@
 # the default package dependencies
 
-bkh_pytorch_utils >= 0.8.9
+bkh_pytorch_utils == 0.9.0
 torchextractor >= 0.3.0
 OmegaConf >= 2.0.0
