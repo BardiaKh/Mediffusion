@@ -1,5 +1,5 @@
 from .diffusion.base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
-from .diffusion.solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSolver
+from .diffusion.solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSolver, DDPMDumpSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
 from .utils.pl import get_obj_from_str
 from .models.unet import UNetModel
@@ -233,6 +233,8 @@ class DiffusionModule(bpu.BKhModule):
         elif inference_protocol.startswith("PNMD"):
             num_steps = int(inference_protocol[len("PNMD"):])
             solver = PNMDSolver(self.diffusion, num_steps=num_steps)
+        elif inference_protocol == "DDPM_dump":
+            solver = DDPMDumpSolver(self.diffusion)
         else:
             raise ValueError(f"Unknown inference protocol {inference_protocol}, only DDPM, DDIM, IDDIM, PNMD are supported")
 
