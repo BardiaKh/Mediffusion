@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="mediffusion",
-    version="0.6.0-nooj",
+    version="0.6.1",
     author="Bardia Khosravi",
     author_email="bardiakhosravi95@gmail.com",
     description="Diffusion Models for Medical Imaging",
