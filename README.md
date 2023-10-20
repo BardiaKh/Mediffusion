@@ -71,6 +71,7 @@ valid_data_dicts = [
 transforms = mn.transforms.Compose([
     mn.transforms.LoadImageD(keys="img"),
     mn.transforms.SelectItemsD(keys=["img","cls"]),
+    mn.transforms.ScaleIntensityD(keys=["img"], minv=-1, maxv=1),
     mn.transforms.ToTensorD(keys=["img","cls"], dtype=torch.float, track_meta=False),
 ])
 
