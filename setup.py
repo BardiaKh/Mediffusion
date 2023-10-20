@@ -20,7 +20,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        "bkh-pytorch-utils==0.8.9", #v: 0.8.3
+        "bkh-pytorch-utils==0.9.0",
         "torchextractor==0.3.0",
         "OmegaConf==2.0.0",
     ],
