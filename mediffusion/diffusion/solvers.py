@@ -1,5 +1,8 @@
+import os
 import numpy as np
 import torch
+import PIL
+from PIL import Image
 from tqdm import tqdm
 from .base import GaussianDiffusionBase
 from ..utils.diffusion import get_respaced_betas
@@ -200,9 +203,23 @@ class DDPMDumpSolver(SolverBase):
               
             # Dump 0th image to file
             jj = 0  # index to save
-            img = imgs[jj].squeeze().to('cpu').numpy()
-            out_filename = os.environ["DDPM_DUMP_OUTPUT_BASENAME"] + f"-{ts[jj]:3d}.png"
+            # Wow, how many ways can there be to cast a pile of numbers???  Nine and counting!
+            imgjj1 = imgs[jj].squeeze().to('cpu')      # convert to something (type "<f2")?
+            imgjj2 = imgjj1.float()                    # convert to full precision floats (i think)
+            imgjj3 = (255 * (imgjj2 + 1) / 2)          # [-1,1] -> [0,255]
+            imgjj4 = imgjj3.numpy().astype(np.uint8)   # convert to ints
+            img = PIL.Image.fromarray(imgjj4).convert('L')  # greyscale PIL image
+            out_filename = os.environ["DDPM_DUMP_OUTPUT_BASENAME"] + f"-{ts[jj]:03d}.png"
             img.save(out_filename, "png")
+
+            # # debug
+            # if (ts % 100) == 0:
+            #     print (f"ts,shape = {ts},{imgs[jj].squeeze().shape}")
+            #     print (f"imgjj  min,max = {imgs[jj].min()},{imgs[jj].max()}")
+            #     print (f"imgjj1 min,max = {imgjj1.min()},{imgjj1.max()}")
+            #     print (f"imgjj2 min,max = {imgjj2.min()},{imgjj2.max()}")
+            #     print (f"imgjj3 min,max = {imgjj3.min()},{imgjj3.max()}")
+            #     print (f"imgjj4 min,max = {imgjj4.min()},{imgjj4.max()}")
 
         return imgs
     

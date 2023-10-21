@@ -47,7 +47,7 @@ class DiffusionModule(bpu.BKhModule):
         self.config = OmegaConf.merge(default_config, user_config)
 
         # add batch size to config just for logging purposes
-        OmegaConf.update(self.config, "batch_size", self.batch_size, merge=False)
+        OmegaConf.update(self.config, "batch_size", self.batch_size)
         
         self.lr = self.config.optimizer.lr
         self.optimizer_class = get_obj_from_str(self.config.optimizer.type)
@@ -85,7 +85,7 @@ class DiffusionModule(bpu.BKhModule):
         self.concat_conditioned = False if self.config.model.concat_channels == 0  else True
         
         if not self.class_conditioned:
-            OmegaConf.update(self.config, "validation.classifier_cond_scale", 0, merge=False)
+            OmegaConf.update(self.config, "validation.classifier_cond_scale", 0)
 
         self.save_hyperparameters(self.config)
         
@@ -236,7 +236,7 @@ class DiffusionModule(bpu.BKhModule):
         elif inference_protocol == "DDPM_dump":
             solver = DDPMDumpSolver(self.diffusion)
         else:
-            raise ValueError(f"Unknown inference protocol {inference_protocol}, only DDPM, DDIM, IDDIM, PNMD are supported")
+            raise ValueError(f"Unknown inference protocol {inference_protocol}.  Only DDPM, DDIM, IDDIM, PNMD, and DDPM_dump are supported")
 
         imgs = solver.sample(
             self.model,
