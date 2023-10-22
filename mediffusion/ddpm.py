@@ -176,6 +176,12 @@ class DiffusionModule(bpu.BKhModule):
                 x_start_list = x_start.cpu().split(1, dim=0)
                 x_start_list = [img.squeeze(0) for img in x_start_list]
                 self._log_img(x_start_list, cls, title = "real samples")
+                
+            if self.config.validation.log_concat:
+                for num_channel in range(concat.shape[1]):
+                    concat_list = concat[:, num_channel:num_channel+1, ...].cpu().split(1, dim=0)
+                    concat_list = [img.squeeze(0) for img in concat_list]
+                    self._log_img(concat_list, cls, title = f"concat samples - channel: {num_channel}")
             
             self._log_img(imgs, cls, title = "generated samples")
         
