@@ -22,7 +22,7 @@ setuptools.setup(
     install_requires=[
         "bkh-pytorch-utils==0.9.2",
         "torchextractor==0.3.0",
-        "OmegaConf==2.0.0",
+        "OmegaConf==2.3.0",
     ],
     package_data={
         'mediffusion': ['./default_config/default.yaml'],
