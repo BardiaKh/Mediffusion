@@ -211,13 +211,13 @@ class DiffusionModule(bpu.BKhModule):
             imgs_to_log.append(img)
 
         if self.class_conditioned:
-            cls_log_indices = self.config.validation.cls_log_indices
+            log_cls_indices = self.config.validation.log_cls_indices
             caption = []
             cls = cls.cpu().split(1, dim=0)
             for c in cls:
                 c = c.squeeze().numpy().tolist()
-                if cls_log_indices!=-1:
-                    c = [c[k] for k in cls_log_indices]
+                if log_cls_indices!=-1:
+                    c = [c[k] for k in log_cls_indices]
                 caption.append(f"Class: {c}")
             self.logger.log_image(key=title, images=imgs_to_log, caption=caption)
         else:

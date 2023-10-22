@@ -20,7 +20,7 @@ validation:
   protocol: DDIM100
   log_original: false
   log_concat: false
-  cls_log_indices: -1 
+  log_cls_indices: -1 
   
 
 model:
