@@ -161,6 +161,7 @@ class DiffusionModule(bpu.BKhModule):
     def validation_step(self, batch, batch_idx):
         x_start = batch["img"]
         cls = batch["cls"] if self.class_conditioned else None
+        cls_log_indices = self.config.validation.cls_log_indices
         concat = batch['concat'] if self.concat_conditioned else None
 
         batch_size = x_start.shape[0]
@@ -175,15 +176,15 @@ class DiffusionModule(bpu.BKhModule):
             if self.config.validation.log_original:
                 x_start_list = x_start.cpu().split(1, dim=0)
                 x_start_list = [img.squeeze(0) for img in x_start_list]
-                self._log_img(x_start_list, cls, title = "real samples")
+                self._log_img(x_start_list, cls, cls_log_indices, title = "real samples")
                 
             if self.config.validation.log_concat:
                 for num_channel in range(concat.shape[1]):
                     concat_list = concat[:, num_channel:num_channel+1, ...].cpu().split(1, dim=0)
                     concat_list = [img.squeeze(0) for img in concat_list]
-                    self._log_img(concat_list, cls, title = f"concat samples - channel: {num_channel}")
+                    self._log_img(concat_list, cls, cls_log_indices, title = f"concat samples - channel: {num_channel}")
             
-            self._log_img(imgs, cls, title = "generated samples")
+            self._log_img(imgs, cls, cls_log_indices, title = "generated samples")
         
         ts, t_weights = self.timestep_scheduler.sample(batch_size=batch_size, device=x_start.device)
         
@@ -193,7 +194,7 @@ class DiffusionModule(bpu.BKhModule):
 
         return {'val_loss': loss_terms['loss'].mean()}
 
-    def _log_img(self, imgs, cls, title="generated samples"):
+    def _log_img(self, imgs, cls, cls_log_indices=None, title="generated samples"):
         if self.config.model.dims == 3:
             imgs = torch.stack(imgs, dim=0)                     # (B, C, H, W, D)
             imgs = imgs[:,0:1,:,:,:]                            # C:1
@@ -213,8 +214,10 @@ class DiffusionModule(bpu.BKhModule):
         if self.class_conditioned:
             caption = []
             cls = cls.cpu().split(1, dim=0)
-            for i,c in enumerate(cls):
-                c = c.numpy().tolist()
+            for c in cls:
+                c = c.squeeze().numpy().tolist()
+                if cls_log_indices!=-1:
+                    c = [c[k] for k in cls_log_indices]
                 caption.append(f"Class: {c}")
             self.logger.log_image(key=title, images=imgs_to_log, caption=caption)
         else:

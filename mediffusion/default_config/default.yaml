@@ -20,6 +20,8 @@ validation:
   protocol: DDIM100
   log_original: false
   log_concat: false
+  cls_log_indices: -1 # log the entire cls vector; alternatively, provide a list of desired indices to log
+  
 
 model:
   input_size: 256
