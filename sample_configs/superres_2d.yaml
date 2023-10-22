@@ -19,6 +19,8 @@ inference:
   classifier_cond_scale: 4
   protocol: DDIM100
   log_original: true
+  log_concat: false
+  log_cls_indices: -1 
 
 model:
   input_size: 1024

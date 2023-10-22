@@ -21,7 +21,6 @@ validation:
   log_original: false
   log_concat: false
   log_cls_indices: -1 
-  
 
 model:
   input_size: 256
