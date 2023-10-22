@@ -105,9 +105,9 @@ Below is a table that provides descriptions for each element in the configuratio
 |            | type                    | The type of optimizer to use                          |
 | validation | classifier_cond_scale   | Classifier guidance scale for validation logging.     |
 |            | protocol                | Inference protocol for logging validation results     |
-|            | log_original            | Whether to log the original validation data (True/False) |  
-|            | log_concat              | Whether to log the concatenated images (True/False)   |
-|            | cls_log_indices         | Whether to log the entire cls vector (default value of -1), or specefic indices from the cls vector (user should provide a list of desired cls indices) |
+|            | log_original            | Whether to log the original validation data (True/False)     | 
+|            | log_concat              | Whether to log the concatenated images (True/False)     |
+|            | cls_log_indices         | Whether to log the entire cls vector (default value of -1), or specefic indices from the cls vector (user should provide a list of desired cls indices)     |
 | model      | input_size              | The input size of the model. Can be an integer for square and cube images or a list of integers for specific axes, like [64, 64, 32] |
 |            | dims                    | Number of dimensions, 2 or 3 for 2D and 3D images     |
 |            | attention_resolutions   | List of resolutions for attention layers              |
