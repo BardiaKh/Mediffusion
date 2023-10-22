@@ -173,9 +173,15 @@ class DiffusionModule(bpu.BKhModule):
             imgs = self.predict(noise, inference_protocol=self.config.validation.protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.config.validation.classifier_cond_scale)
             
             if self.config.validation.log_original:
-                x_start = x_start.cpu().split(1, dim=0)
-                x_start = [img.squeeze(0) for img in x_start]
-                self._log_img(x_start, cls, title = "real samples")
+                x_start_list = x_start.cpu().split(1, dim=0)
+                x_start_list = [img.squeeze(0) for img in x_start_list]
+                self._log_img(x_start_list, cls, title = "real samples")
+                
+            if self.config.validation.log_concat:
+                for num_channel in range(concat.shape[1]):
+                    concat_list = concat[:, num_channel:num_channel+1, ...].cpu().split(1, dim=0)
+                    concat_list = [img.squeeze(0) for img in concat_list]
+                    self._log_img(concat_list, cls, title = f"concat samples - channel: {num_channel}")
             
             self._log_img(imgs, cls, title = "generated samples")
         
@@ -205,10 +211,13 @@ class DiffusionModule(bpu.BKhModule):
             imgs_to_log.append(img)
 
         if self.class_conditioned:
+            cls_log_indices = self.config.validation.cls_log_indices
             caption = []
             cls = cls.cpu().split(1, dim=0)
-            for i,c in enumerate(cls):
-                c = c.numpy().tolist()
+            for c in cls:
+                c = c.squeeze().numpy().tolist()
+                if cls_log_indices!=-1:
+                    c = [c[k] for k in cls_log_indices]
                 caption.append(f"Class: {c}")
             self.logger.log_image(key=title, images=imgs_to_log, caption=caption)
         else:
