@@ -224,7 +224,7 @@ class DiffusionModule(bpu.BKhModule):
             self.logger.log_image(key=title, images=imgs_to_log)
 
     @torch.inference_mode()
-    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None, post_process_fn=None, clip_denoised=True):            
+    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs={}, classifier_cond_scale=0, generator=None, start_denoise_step=None, post_process_fn=None, clip_denoised=True):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
 
         for key in model_kwargs:
