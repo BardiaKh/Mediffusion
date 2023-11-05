@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import PIL
 from PIL import Image
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from .base import GaussianDiffusionBase
 from ..utils.diffusion import get_respaced_betas
 from ..utils.solvers import extract_diffusion_args
@@ -96,7 +96,7 @@ class DDPMSolver(SolverBase):
         else:
             indices = list(range(start_denoise_step))[::-1]
 
-        for i in tqdm(indices, desc="DDPM Sampling"):
+        for i in tqdm(indices, desc="DDPM Sampling", leave=False):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=device)
             out = self._sample_fn(
@@ -185,7 +185,7 @@ class DDPMDumpSolver(SolverBase):
         else:
             indices = list(range(start_denoise_step))[::-1]
 
-        for i in tqdm(indices, desc="DDPM Sampling and dumping"):
+        for i in tqdm(indices, desc="DDPM Sampling and dumping", leave=False):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=device)
             out = self._sample_fn(
@@ -209,7 +209,7 @@ class DDPMDumpSolver(SolverBase):
             imgjj3 = (255 * (imgjj2 + 1) / 2)          # [-1,1] -> [0,255]
             imgjj4 = imgjj3.numpy().astype(np.uint8)   # convert to ints
             img = PIL.Image.fromarray(imgjj4).convert('L')  # greyscale PIL image
-            out_filename = os.environ["DDPM_DUMP_OUTPUT_BASENAME"] + f"-{ts[jj]:03d}.png"
+            out_filename = os.environ["DDPM_DUMP_OUTPUT_BASENAME"] + f"-{jj:02d}.{ts[jj]:03d}.png"
             img.save(out_filename, "png")
 
             # # debug
@@ -346,7 +346,7 @@ class DDIMSolver(SolverBase):
         else:
             indices = list(range(start_denoise_step))[::-1]
 
-        for i in tqdm(indices, desc="DDIM Sampling"):
+        for i in tqdm(indices, desc="DDIM Sampling", leave=False):
             t = self._get_t(i)            
             ts = t.expand(batch_size).to(device=device)
             out = self._sample_fn(
@@ -476,7 +476,7 @@ class InverseDDIMSolver(SolverBase):
         else:
             indices = list(range(start_denoise_step, self.num_timesteps))
 
-        for i in tqdm(indices, desc="Creating DDIM Noise"):
+        for i in tqdm(indices, desc="Creating DDIM Noise", leave=False):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=device)
             out = self._sample_fn(
@@ -655,7 +655,7 @@ class PNMDSolver(SolverBase):
 
         indices = indices[1:-1]
 
-        for i in tqdm(indices, desc="PRK Sampling"):
+        for i in tqdm(indices, desc="PRK Sampling", leave=False):
             t = self._get_t(i)            
             ts = t.expand(batch_size).to(device=device)
             out = self._prk_sample_fn(
@@ -724,7 +724,7 @@ class PNMDSolver(SolverBase):
 
         old_eps = []
 
-        for i in tqdm(indices, desc="PLMS Sampling"):
+        for i in tqdm(indices, desc="PLMS Sampling", leave=False):
             t = self._get_t(i)            
             ts = t.expand(batch_size).to(device=device)
             if len(old_eps) < 3:

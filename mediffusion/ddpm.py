@@ -7,7 +7,7 @@ import os
 import torch
 import numpy as np
 import bkh_pytorch_utils as bpu
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import torchextractor as tx
 from functools import partial
 from omegaconf import OmegaConf
