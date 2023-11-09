@@ -52,11 +52,11 @@ class Trainer:
         lr_monitor = LearningRateMonitor(logging_interval="step")
         checkpoint_callback1= ModelCheckpoint(
             dirpath=self.root_directory + "/pl",
-            filename=f'{{epoch}}-{{step}}-{{train_loss:0.4F}}',
-            monitor="train_loss",
+            filename=f'{{epoch}}-{{step}}-{{val_loss:0.4F}}',
+            monitor="val_loss",
             mode="min",
             save_last=True,
-            save_top_k=1,
+            save_top_k=5,
         )
 
         ema = bpu.EMA(decay=0.9999, ema_interval_steps=1, ema_device="cpu", use_ema_for_validation=True)
