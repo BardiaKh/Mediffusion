@@ -226,9 +226,13 @@ The `img` is the generated output based on the model's inference (`C:H:W(:D)`). 
 
 **Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PNMD`. As an example, `"PNMD100"` means using the `PNMD` solver for `100` steps. 
 
-## Tutorials *(coming soon)*
+## Tutorials
 
 For more hands-on tutorials on how to effectively use this package, please check the `tutorials` folder in the GitHub repository. These tutorials provide step-by-step instructions, Colab notebooks, and explanations to help you get started with the software.
+
+| File Name      | Description | Notebook Link |
+|----------------|-------------|---------------|
+| 01_2d_ddpm.ipynb | Getting started with training a simple 2D class-conditioned DDPM. | [📓](https://github.com/BardiaKh/Mediffusion/tree/main/tutorials/01_2d_ddpm.ipynb) |
 
 ## TO-DO
 
