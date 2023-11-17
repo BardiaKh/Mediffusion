@@ -81,7 +81,7 @@ class DDPMSolver(SolverBase):
         return {"sample": sample, "pred_xstart": out["pred_xstart"]}
     
     @torch.no_grad()
-    def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+    def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None, mask=None, original_image=None):
         device = self._get_model_device(model)
         dtype = self._get_model_dtype(model)
         
@@ -96,6 +96,12 @@ class DDPMSolver(SolverBase):
         for i in tqdm(indices, desc="DDPM Sampling"):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=device)
+
+            if mask is not None:
+                x0_noised = self.q_sample(original_image, ts)
+                imgs = imgs * mask + x0_noised * (1 - mask)
+                imgs = imgs.to(device=device, dtype=dtype)
+
             out = self._sample_fn(
                 model,
                 imgs,
@@ -109,6 +115,10 @@ class DDPMSolver(SolverBase):
             )
             imgs = out["sample"].detach().to(dtype=dtype, device=device)
 
+        if mask is not None:
+            imgs = imgs * mask + original_image * (1 - mask)
+            imgs = imgs.to(device=device, dtype=dtype)
+
         return imgs
     
 class DDIMSolver(SolverBase):
@@ -119,7 +129,7 @@ class DDIMSolver(SolverBase):
     :param kwargs: the kwargs to create the base diffusion process.
     """
 
-    def __init__(self, diffusion, num_steps):
+    def __init__(self, diffusion, num_steps, eta=0.0):
         kwargs = extract_diffusion_args(diffusion)
         base_diffusion = GaussianDiffusionBase(**kwargs)
 
@@ -137,6 +147,7 @@ class DDIMSolver(SolverBase):
                 self.timestep_map.append(i)
                 
         kwargs["betas"] = torch.tensor(new_betas)
+        self.eta = eta
         super().__init__(**kwargs)
 
     def p_mean_variance(
@@ -180,7 +191,7 @@ class DDIMSolver(SolverBase):
         cond_fn=None,
         model_kwargs=None,
         generator=None,
-        eta=1.0,
+        eta=0.0,
     ):
         """
         Sample x_{t-1} from the model using DDIM.
@@ -222,7 +233,7 @@ class DDIMSolver(SolverBase):
         return {"sample": sample, "pred_xstart": out["pred_xstart"]}
         
     @torch.no_grad()
-    def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+    def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None, mask=None, original_image=None):
         device = self._get_model_device(model)
         dtype = self._get_model_dtype(model)
         
@@ -237,6 +248,12 @@ class DDIMSolver(SolverBase):
         for i in tqdm(indices, desc="DDIM Sampling"):
             t = self._get_t(i)            
             ts = t.expand(batch_size).to(device=device)
+
+            if mask is not None:
+                x0_noised = self.q_sample(original_image, ts)
+                imgs = imgs * mask + x0_noised * (1 - mask)
+                imgs = imgs.to(device=device, dtype=dtype)
+
             out = self._sample_fn(
                 model,
                 imgs,
@@ -247,8 +264,13 @@ class DDIMSolver(SolverBase):
                 cond_fn=cond_fn,
                 model_kwargs=model_kwargs,
                 generator=generator,
+                eta=self.eta,
             )
             imgs = out["sample"].detach().to(dtype=dtype, device=device)
+
+        if mask is not None:
+            imgs = imgs * mask + original_image * (1 - mask)
+            imgs = imgs.to(device=device, dtype=dtype)
 
         return imgs
         
@@ -260,7 +282,7 @@ class InverseDDIMSolver(SolverBase):
     :param kwargs: the kwargs to create the base diffusion process.
     """
 
-    def __init__(self, diffusion, num_steps):
+    def __init__(self, diffusion, num_steps, eta=0.0):
         kwargs = extract_diffusion_args(diffusion)
         base_diffusion = GaussianDiffusionBase(**kwargs)
 
@@ -278,6 +300,7 @@ class InverseDDIMSolver(SolverBase):
                 self.timestep_map.append(i)
                 
         kwargs["betas"] = torch.tensor(new_betas)
+        self.eta = 0.0
         super().__init__(**kwargs)
 
     def p_mean_variance(
@@ -376,12 +399,13 @@ class InverseDDIMSolver(SolverBase):
                 denoised_fn=denoised_fn,
                 cond_fn=cond_fn,
                 model_kwargs=model_kwargs,
+                eta=self.eta,
             )
             imgs = out["sample"].detach().to(dtype=dtype, device=device)
 
         return imgs
 
-class PNMDSolver(SolverBase):
+class PLMSSolver(SolverBase):
     """
     A diffusion process which can skip steps in a base diffusion process.
     :param use_timesteps: a collection (sequence or set) of timesteps from the
@@ -596,7 +620,7 @@ class PNMDSolver(SolverBase):
         return {"sample": sample, "pred_xstart": pred_xstart, "eps": eps}
     
     @torch.no_grad()
-    def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None):
+    def sample(self, model, imgs, start_denoise_step=None, cond_scale=1, clip_denoised=True, denoised_fn=None, cond_fn=None, model_kwargs=None, generator=None, mask=None, original_image=None):
         device = self._get_model_device(model)
         dtype = self._get_model_dtype(model)
         
@@ -615,6 +639,12 @@ class PNMDSolver(SolverBase):
         for i in tqdm(indices, desc="PLMS Sampling"):
             t = self._get_t(i)            
             ts = t.expand(batch_size).to(device=device)
+
+            if mask is not None:
+                x0_noised = self.q_sample(original_image, ts)
+                imgs = imgs * mask + x0_noised * (1 - mask)
+                imgs = imgs.to(device=device, dtype=dtype)
+
             if len(old_eps) < 3:
                 out = self._prk_sample_fn(
                     model,
@@ -641,6 +671,11 @@ class PNMDSolver(SolverBase):
                 old_eps.pop(0)
             old_eps.append(out["eps"])
             imgs = out["sample"].detach().to(dtype=dtype, device=device)
+
+        if mask is not None:
+            imgs = imgs * mask + original_image * (1 - mask)
+            imgs = imgs.to(device=device, dtype=dtype)
+
         return imgs
 
 class _WrappedModel:
