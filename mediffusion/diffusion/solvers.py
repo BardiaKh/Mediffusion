@@ -115,6 +115,10 @@ class DDPMSolver(SolverBase):
             )
             imgs = out["sample"].detach().to(dtype=dtype, device=device)
 
+        if mask is not None:
+            imgs = imgs * mask + original_image * (1 - mask)
+            imgs = imgs.to(device=device, dtype=dtype)
+
         return imgs
     
 class DDIMSolver(SolverBase):
@@ -263,6 +267,10 @@ class DDIMSolver(SolverBase):
                 eta=self.eta,
             )
             imgs = out["sample"].detach().to(dtype=dtype, device=device)
+
+        if mask is not None:
+            imgs = imgs * mask + original_image * (1 - mask)
+            imgs = imgs.to(device=device, dtype=dtype)
 
         return imgs
         
@@ -663,6 +671,11 @@ class PLMSSolver(SolverBase):
                 old_eps.pop(0)
             old_eps.append(out["eps"])
             imgs = out["sample"].detach().to(dtype=dtype, device=device)
+
+        if mask is not None:
+            imgs = imgs * mask + original_image * (1 - mask)
+            imgs = imgs.to(device=device, dtype=dtype)
+
         return imgs
 
 class _WrappedModel:
