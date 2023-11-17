@@ -1,5 +1,5 @@
 from .diffusion.base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
-from .diffusion.solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSolver
+from .diffusion.solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PLMSSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
 from .utils.pl import get_obj_from_str
 from .models.unet import UNetModel
@@ -224,26 +224,33 @@ class DiffusionModule(bpu.BKhModule):
             self.logger.log_image(key=title, images=imgs_to_log)
 
     @torch.inference_mode()
-    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs={}, classifier_cond_scale=0, generator=None, start_denoise_step=None, post_process_fn=None, clip_denoised=True):            
+    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs={}, classifier_cond_scale=0, generator=None, mask=None, original_image=None, start_denoise_step=None, post_process_fn=None, clip_denoised=True, eta=0.0):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
 
         for key in model_kwargs:
             if model_kwargs[key] is not None:
                 model_kwargs[key] = model_kwargs[key].to(device=self.device, dtype=self.dtype)
+
+        assert mask is None or (mask is not None and original_image is not None), "to use inpainting, both mask and original_image should be provided"
+        
+        if mask is not None:
+            mask = mask.to(device=self.device, dtype=self.dtype)
+            original_image = original_image.to(device=self.device, dtype=self.dtype)
+            assert mask.shape == init_noise.shape == original_image.shape, f"mask, init_noise and original_image should have the same shape, got {mask.shape}, {init_noise.shape} and {original_image.shape}"
         
         if inference_protocol == "DDPM":
             solver = DDPMSolver(self.diffusion)
         elif inference_protocol.startswith("DDIM"):
             num_steps = int(inference_protocol[len("DDIM"):])
-            solver = DDIMSolver(self.diffusion, num_steps=num_steps)
+            solver = DDIMSolver(self.diffusion, num_steps=num_steps, eta=eta)
         elif inference_protocol.startswith("IDDIM"):
             num_steps = int(inference_protocol[len("IDDIM"):])
-            solver = InverseDDIMSolver(self.diffusion, num_steps=num_steps)
-        elif inference_protocol.startswith("PNMD"):
-            num_steps = int(inference_protocol[len("PNMD"):])
-            solver = PNMDSolver(self.diffusion, num_steps=num_steps)
+            solver = InverseDDIMSolver(self.diffusion, num_steps=num_steps, eta=0.0)
+        elif inference_protocol.startswith("PLMS"):
+            num_steps = int(inference_protocol[len("PLMS"):])
+            solver = PLMSSolver(self.diffusion, num_steps=num_steps)
         else:
-            raise ValueError(f"Unknown inference protocol {inference_protocol}, only DDPM, DDIM, IDDIM, PNMD are supported")
+            raise ValueError(f"Unknown inference protocol {inference_protocol}, only DDPM, DDIM, IDDIM, PLMS are supported")
 
         imgs = solver.sample(
             self.model,
@@ -252,7 +259,9 @@ class DiffusionModule(bpu.BKhModule):
             cond_scale=classifier_cond_scale,
             model_kwargs=model_kwargs,
             clip_denoised=clip_denoised,
-            generator=generator
+            generator=generator,
+            mask=mask,
+            original_image=original_image,
         )
         
         imgs = imgs.split(1, dim=0)                 # [(1, C, H, W, (D))] * B
