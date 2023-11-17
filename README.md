@@ -224,7 +224,7 @@ img = model.predict(
 
 The `img` is the generated output based on the model's inference (`C:H:W(:D)`). To save the image, you need to transpose it first, due to the different axis conventions.
 
-**Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PNMD`. As an example, `"PNMD100"` means using the `PNMD` solver for `100` steps. 
+**Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PLMS`. As an example, `"PLMS100"` means using the `PLMS` solver for `100` steps. 
 
 ## Tutorials
 
