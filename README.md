@@ -224,11 +224,15 @@ img = model.predict(
 
 The `img` is the generated output based on the model's inference (`C:H:W(:D)`). To save the image, you need to transpose it first, due to the different axis conventions.
 
-**Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PNMD`. As an example, `"PNMD100"` means using the `PNMD` solver for `100` steps. 
+**Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PLMS`. As an example, `"PLMS100"` means using the `PLMS` solver for `100` steps. 
 
-## Tutorials *(coming soon)*
+## Tutorials
 
 For more hands-on tutorials on how to effectively use this package, please check the `tutorials` folder in the GitHub repository. These tutorials provide step-by-step instructions, Colab notebooks, and explanations to help you get started with the software.
+
+| File Name      | Description | Notebook Link |
+|----------------|-------------|---------------|
+| 01_2d_ddpm.ipynb | Getting started with training a simple 2D class-conditioned DDPM. | [📓](https://github.com/BardiaKh/Mediffusion/tree/main/tutorials/01_2d_ddpm.ipynb) |
 
 ## TO-DO
 
