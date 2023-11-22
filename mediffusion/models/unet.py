@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import inspect
 
 from mediffusion.modules.nn import (
     conv_nd,
@@ -40,8 +41,6 @@ class UNetModel(nn.Module):
         class-conditional with `num_classes` classes.
     :param concat_channels: if specified (as an int), then this model will
         concatenate the concat vector to the input.
-    :param missing_class_value: if specified, then this value will be replaced by
-        a learned parameter. This is useful for missing classes in the dataset.
     :param guidance_drop_prob: if > 0, then then use classifier-free
         guidance with the given scale.
     :param use_checkpoint: use gradient checkpointing to reduce memory usage.
@@ -71,7 +70,6 @@ class UNetModel(nn.Module):
         conv_resample=True,
         num_classes=0,
         concat_channels = 0,
-        missing_class_value = None,
         guidance_drop_prob=0,
         use_checkpoint=False,
         num_heads=1,
@@ -106,11 +104,7 @@ class UNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
         self.scale_skip_connection = scale_skip_connection
-        self.missing_class_value = missing_class_value
         
-        if missing_class_value is not None:
-            self.missing_class_param = torch.nn.Parameter(torch.randn(1))
-
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -295,14 +289,6 @@ class UNetModel(nn.Module):
                 drop_cls_prob = 0.0
             elif cls_embed is None:
                 assert cls.shape == (x.shape[0],self.num_classes)
-
-                if self.missing_class_value is not None:
-                    cls = torch.where(
-                        cls == self.missing_class_value, 
-                        self.missing_class_param, 
-                        cls
-                    )
-
                 cls_embed = self.class_embed(cls)
 
             drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
