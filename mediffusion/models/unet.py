@@ -64,6 +64,7 @@ class UNetModel(nn.Module):
         out_channels,
         num_res_blocks,
         attention_resolutions,
+        emb_channels,
         dims=2,
         dropout=0,
         channel_mult=(1, 2, 4, 8),
@@ -93,6 +94,7 @@ class UNetModel(nn.Module):
         self.out_channels = out_channels
         self.num_res_blocks = num_res_blocks
         self.attention_resolutions = attention_resolutions
+        self.emb_channels = emb_channels
         self.dropout = dropout
         self.channel_mult = channel_mult
         self.conv_resample = conv_resample
@@ -105,21 +107,19 @@ class UNetModel(nn.Module):
         self.num_heads_upsample = num_heads_upsample
         self.scale_skip_connection = scale_skip_connection
         
-        time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
-            linear(model_channels, time_embed_dim),
+            linear(model_channels, self.emb_channels),
             nn.SiLU(),
-            linear(time_embed_dim, time_embed_dim),
+            linear(self.emb_channels, self.emb_channels),
         )
 
         if self.num_classes > 0:
-            class_embed_dim = time_embed_dim
             self.class_embed = nn.Sequential(
-                linear(self.num_classes, class_embed_dim),
+                linear(self.num_classes, self.emb_channels),
                 nn.SiLU(),
-                linear(class_embed_dim, class_embed_dim),
+                linear(self.emb_channels, self.emb_channels),
             )
-            self.null_cls_embed = torch.nn.Parameter(torch.randn(1, class_embed_dim))
+            self.null_cls_embed = torch.nn.Parameter(torch.randn(1, self.emb_channels))
 
         ch = input_ch = int(channel_mult[0] * model_channels)
         self.input_blocks = nn.ModuleList(
@@ -133,7 +133,7 @@ class UNetModel(nn.Module):
                 layers = [
                     ResBlock(
                         ch,
-                        time_embed_dim,
+                        self.emb_channels,
                         dropout,
                         out_channels=int(mult * model_channels),
                         dims=dims,
@@ -162,7 +162,7 @@ class UNetModel(nn.Module):
                     TimestepEmbedSequential(
                         ResBlock(
                             ch,
-                            time_embed_dim,
+                            self.emb_channels,
                             dropout,
                             out_channels=out_ch,
                             dims=dims,
@@ -185,7 +185,7 @@ class UNetModel(nn.Module):
         self.middle_block = TimestepEmbedSequential(
             ResBlock(
                 ch,
-                time_embed_dim,
+                self.emb_channels,
                 dropout,
                 dims=dims,
                 use_checkpoint=use_checkpoint,
@@ -201,7 +201,7 @@ class UNetModel(nn.Module):
             ),
             ResBlock(
                 ch,
-                time_embed_dim,
+                self.emb_channels,
                 dropout,
                 dims=dims,
                 use_checkpoint=use_checkpoint,
@@ -218,7 +218,7 @@ class UNetModel(nn.Module):
                 layers = [
                     ResBlock(
                         ch + ich,
-                        time_embed_dim,
+                        self.emb_channels,
                         dropout,
                         out_channels=int(model_channels * mult),
                         dims=dims,
@@ -243,7 +243,7 @@ class UNetModel(nn.Module):
                     layers.append(
                         ResBlock(
                             ch,
-                            time_embed_dim,
+                            self.emb_channels,
                             dropout,
                             out_channels=out_ch,
                             dims=dims,

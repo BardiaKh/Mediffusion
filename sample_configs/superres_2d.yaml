@@ -31,6 +31,7 @@ model:
   in_channels: 2
   out_channels: 2
   model_channels: 64
+  emb_channels: 256
   num_head_channels: -1
   num_heads: 4
   num_heads_upsample: -1
