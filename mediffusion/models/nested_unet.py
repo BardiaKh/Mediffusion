@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import inspect
 import math
+from copy import copy
 
 from mediffusion.modules.nn import (
     conv_nd,
@@ -293,7 +294,7 @@ class UNetModel(nn.Module):
         return {name: getattr(self, name) for name in init_params if hasattr(self, name)}
             
     def create_inner_unet(self):
-        init_params = self.init_params
+        init_params = copy(self.init_params)
         next_matryoshka_cut = init_params['matryoshka_cuts'][1]
         current_matryoshka_blocks = len(self.channel_mult)
         init_params['matryoshka_cuts'] = [i//next_matryoshka_cut for i in init_params['matryoshka_cuts'][1:]]
@@ -309,11 +310,22 @@ class UNetModel(nn.Module):
 
         return UNetModel(**init_params)
 
-    def forward(self, x, *args, **kwargs):
-        if isinstance(x, torch.Tensor):
-            return self._forward(x, *args, **kwargs)
+    def forward(self, x, *args, **kwargs): # rounter for selecting the starting level only!
+        if isinstance(x, torch.Tensor): # non-matryoshka run
+            x = [x]
+            if "concat" in kwargs:
+                kwargs["concat"] = [kwargs["concat"]]
+        
+        if "concat" not in kwargs:
+            kwargs["concat"] = [None] * len(x)
+        
+        total_matryoshka_levels = len(self.init_params['matryoshka_cuts'])
+        if len(x) == total_matryoshka_levels:
+            return self._forward(x, *args, **kwargs)[1]
+        else:
+            return self.middle_block(x, *args, **kwargs)
 
-    def _forward(self, x, timesteps, cls=None, cls_embed=None, concat=None, drop_cls_prob=None, inner_matryoshka_run=False, matryoshka_emb=None):
+    def _forward(self, x, timesteps, cls=None, cls_embed=None, concat=None, drop_cls_prob=None, inner_matryoshka_run=False, matryoshka_emb=None, matryoshka_h=None, matryoshka_outputs=[]):
         """
         Apply the model to an input batch.
 
@@ -322,31 +334,35 @@ class UNetModel(nn.Module):
         :param cls: an [N] Tensor of labels, if class-conditional.
         :return: an [N x C x ...] Tensor of outputs.
         """
+        device = self._get_model_device()
+        dtype = self._get_model_dtype()
+        batch_size = x[0].shape[0]
+
         if torch.is_grad_enabled(): # only check if we're in training mode
             assert (cls is not None) == (
                 self.num_classes > 0
             ), "must specify cls if and only if the model is class-conditional"
 
+        assert (concat[-1] is None and self.concat_channels == 0) or (concat[-1].shape[1] == self.concat_channels), "Number of concat channels do not match with initialized configuration."
+        
         if not inner_matryoshka_run:
-            assert (concat is None and self.concat_channels == 0) or (concat.shape[1] == self.concat_channels), "Number of concat channels do not match with initialized configuration."
-
-            emb = self.time_embed(timestep_embedding(timesteps, self.model_channels).to(dtype=x.dtype))
+            emb = self.time_embed(timestep_embedding(timesteps, self.model_channels).to(dtype=dtype))
 
             if self.num_classes > 0:
                 if cls is None and cls_embed is None: # usually the case for DDIM inversion
-                    cls_embed = self.null_cls_embed.to(x.dtype)
+                    cls_embed = self.null_cls_embed.to(dtype)
                     drop_cls_prob = 0.0
                 elif cls_embed is None:
-                    assert cls.shape == (x.shape[0],self.num_classes)
+                    assert cls.shape == (batch_size,self.num_classes)
                     cls_embed = self.class_embed(cls)
 
                 drop_cls_prob = self.guidance_drop_prob if drop_cls_prob is None else drop_cls_prob
 
-                cls_retention_mask = self._prob_mask_like(x.shape[0], 1-drop_cls_prob, x.device).unsqueeze(-1)
+                cls_retention_mask = self._prob_mask_like(batch_size, 1-drop_cls_prob, device).unsqueeze(-1)
                 cls_embed = torch.where(
                     cls_retention_mask,
                     cls_embed,
-                    self.null_cls_embed.to(x.dtype)
+                    self.null_cls_embed.to(dtype)
                 )
 
                 emb = emb + cls_embed
@@ -354,33 +370,25 @@ class UNetModel(nn.Module):
             assert matryoshka_emb is not None, "matryoshka_emb must be specified in inner matryoshka run"
             emb = matryoshka_emb
 
-        h = x if concat is None else torch.cat([x,concat], dim=1)
-
-        if inner_matryoshka_run:
-            hs = [h]
-            input_block_start_index = 1
-        else:
-            hs = []
-            input_block_start_index = 0
-
-        for module in self.input_blocks[input_block_start_index:]:
+        h = x[-1] if concat[-1] is None else torch.cat([x[-1],concat[-1]], dim=1)
+        hs = []
+        for i, module in enumerate(self.input_blocks):
             h = module(h, emb)
+            if i == 0 and matryoshka_h is not None:
+                h += matryoshka_h
             hs.append(h)
         
-        if isinstance(self.middle_block, UNetModel):
-            h = self.middle_block(h, timesteps, inner_matryoshka_run=True, matryoshka_emb=emb)
+        if len(x) > 1:
+            h, matryoshka_outputs = self.middle_block._forward(x[:-1], timesteps, concat=concat[:-1], inner_matryoshka_run=True, matryoshka_emb=emb, matryoshka_h=hs[-1], matryoshka_outputs=matryoshka_outputs)
         else:
             h = self.middle_block(h, emb)
         
-        for module in self.output_blocks:
+        for i, module in enumerate(self.output_blocks):
             h = torch.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
-        h = h.type(x.dtype)
         
-        if not inner_matryoshka_run:
-            h = self.out(h)
-        
-        return h
+        matryoshka_outputs.append(self.out(h))
+        return h, matryoshka_outputs
 
     def forward_with_cond_scale(self, x, timesteps, cls=None, cls_embed=None, concat=None, cond_scale=0, phi=0.7):
         """model forward with conditional scale (used in inference)
@@ -395,6 +403,10 @@ class UNetModel(nn.Module):
         Returns:
             _type_: model outputs after conditioning
         """
+        device = self._get_model_device()
+        dtype = self._get_model_dtype()
+        batch_size = x[0].shape[0]
+
         if cond_scale == 0:
             return self._forward(x, timesteps, cls, cls_embed=cls_embed, concat=concat, drop_cls_prob=0)
         else:
@@ -403,13 +415,13 @@ class UNetModel(nn.Module):
             elif cls_embed is not None:
                 cls_embed = cls_embed
             else:
-                cls_embed = self.null_cls_embed.to(x.dtype)
+                cls_embed = self.null_cls_embed.to(dtype)
                 
             # repeat null_cls_embed along batch dimension before concatenating
-            null_cls_embed = self.null_cls_embed.repeat(x.shape[0], 1).to(x.dtype)
+            null_cls_embed = self.null_cls_embed.repeat(batch_size, 1).to(dtype).to(device)
             cls_embed = torch.cat([cls_embed, null_cls_embed], dim=0)
 
-            x = torch.cat([x, x], dim=0)
+            x = torch.cat([x, x], dim=0) # TODO: check if this is correct
             if concat is not None:
                 concat = torch.cat([concat, concat], dim=0)
                 
@@ -444,3 +456,9 @@ class UNetModel(nn.Module):
             return torch.zeros(shape, device = device, dtype = torch.bool)
         else:
             return torch.zeros(shape, device = device).float().uniform_(0, 1) < prob
+
+    def _get_model_device(self):
+        return next(self.parameters()).device
+    
+    def _get_model_dtype(self):
+        return next(self.parameters()).dtype
