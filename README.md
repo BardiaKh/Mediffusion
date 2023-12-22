@@ -226,7 +226,7 @@ The `img` is the generated output based on the model's inference (`C:H:W(:D)`). 
 
 **Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PLMS`. As an example, `"PLMS100"` means using the `PLMS` solver for `100` steps. 
 
-**Note**: The solver `DDPM_dump` will output frames corresponding to each diffusion step for each element in the batch.  The name of the frames is `os.environ['DDPM_DUMP_OUTPUT_BASENAME']-II-TT.png`, where `II` is the batch element number and `TT` is the diffusion step number.  For each batch, change the value of `os.environ['DDPM_DUMP_OUTPUT_BASENAME']` to include the batch number to avoid overwrites.
+**Note**: The solver `DDPM_dump` will output frames corresponding to each diffusion step for the first element in the batch.  (Use a batch size of 1 to output all elements.)  The name of the frames is `os.environ['DDPM_DUMP_OUTPUT_BASENAME']-II-TT.png`, where `II` is the batch element number and `TT` is the diffusion step number.  For each batch, change the value of `os.environ['DDPM_DUMP_OUTPUT_BASENAME']` to include the batch number to avoid overwrites.
 
 ## Tutorials
 

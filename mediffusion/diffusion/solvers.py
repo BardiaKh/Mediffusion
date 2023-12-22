@@ -212,7 +212,7 @@ class DDPMDumpSolver(SolverBase):
             imgs = out["sample"].detach().to(dtype=dtype, device=device)
               
             # Dump 0th image to file
-            jj = 0  # index to save
+            jj = 0  # index to save  
             # Wow, how many ways can there be to cast a pile of numbers???  Nine and counting!
             imgjj1 = imgs[jj].squeeze().to('cpu')      # convert to something (type "<f2")?
             imgjj2 = imgjj1.float()                    # convert to full precision floats (i think)
@@ -221,15 +221,6 @@ class DDPMDumpSolver(SolverBase):
             img = PIL.Image.fromarray(imgjj4).convert('L')  # greyscale PIL image
             out_filename = os.environ["DDPM_DUMP_OUTPUT_BASENAME"] + f"-{jj:02d}.{ts[jj]:03d}.png"
             img.save(out_filename, "png")
-
-            # # debug
-            # if (ts % 100) == 0:
-            #     print (f"ts,shape = {ts},{imgs[jj].squeeze().shape}")
-            #     print (f"imgjj  min,max = {imgs[jj].min()},{imgs[jj].max()}")
-            #     print (f"imgjj1 min,max = {imgjj1.min()},{imgjj1.max()}")
-            #     print (f"imgjj2 min,max = {imgjj2.min()},{imgjj2.max()}")
-            #     print (f"imgjj3 min,max = {imgjj3.min()},{imgjj3.max()}")
-            #     print (f"imgjj4 min,max = {imgjj4.min()},{imgjj4.max()}")
 
         return imgs
     
