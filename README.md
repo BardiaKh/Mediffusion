@@ -105,7 +105,9 @@ Below is a table that provides descriptions for each element in the configuratio
 |            | type                    | The type of optimizer to use                          |
 | validation | classifier_cond_scale   | Classifier guidance scale for validation logging.     |
 |            | protocol                | Inference protocol for logging validation results     |
-|            | log_original            | Whether to log the original validation data (True/False)         |
+|            | log_original            | Whether to log the original validation data (True/False)     | 
+|            | log_concat              | Whether to log the concatenated images (True/False)     |
+|            | log_cls_indices         | Whether to log the entire cls vector (default value of -1), or specefic indices from the cls vector (user should provide a list of desired cls indices)     |
 | model      | input_size              | The input size of the model. Can be an integer for square and cube images or a list of integers for specific axes, like [64, 64, 32] |
 |            | dims                    | Number of dimensions, 2 or 3 for 2D and 3D images     |
 |            | attention_resolutions   | List of resolutions for attention layers              |
@@ -222,13 +224,18 @@ img = model.predict(
 
 The `img` is the generated output based on the model's inference (`C:H:W(:D)`). To save the image, you need to transpose it first, due to the different axis conventions.
 
-**Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PNMD`. As an example, `"PNMD100"` means using the `PNMD` solver for `100` steps. 
+**Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PLMS`. As an example, `"PLMS100"` means using the `PLMS` solver for `100` steps. 
 
 **Note**: The solver `DDPM_dump` will output frames corresponding to each diffusion step for each element in the batch.  The name of the frames is `os.environ['DDPM_DUMP_OUTPUT_BASENAME']-II-TT.png`, where `II` is the batch element number and `TT` is the diffusion step number.  For each batch, change the value of `os.environ['DDPM_DUMP_OUTPUT_BASENAME']` to include the batch number to avoid overwrites.
 
-## Tutorials *(coming soon)*
+## Tutorials
 
 For more hands-on tutorials on how to effectively use this package, please check the `tutorials` folder in the GitHub repository. These tutorials provide step-by-step instructions, Colab notebooks, and explanations to help you get started with the software.
+
+| File Name      | Description | Notebook Link |
+|----------------|-------------|---------------|
+| 01_2d_ddpm | Getting started with training a simple 2D class-conditioned DDPM. | [📓](https://github.com/BardiaKh/Mediffusion/tree/main/tutorials/01_2d_ddpm.ipynb) |
+| 02_2d_inpainting | Image inpainting with 2D diffusion model (repaint method) | [📓](https://github.com/BardiaKh/Mediffusion/tree/main/tutorials/02_2d_inpainting.ipynb) |
 
 ## TO-DO
 

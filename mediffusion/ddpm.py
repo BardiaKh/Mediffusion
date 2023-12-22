@@ -1,5 +1,5 @@
 from .diffusion.base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
-from .diffusion.solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PNMDSolver, DDPMDumpSolver
+from .diffusion.solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PLMSSolver, DDPMDumpSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
 from .utils.pl import get_obj_from_str
 from .models.unet import UNetModel
@@ -173,9 +173,15 @@ class DiffusionModule(bpu.BKhModule):
             imgs = self.predict(noise, inference_protocol=self.config.validation.protocol, model_kwargs=model_kwargs, classifier_cond_scale=self.config.validation.classifier_cond_scale)
             
             if self.config.validation.log_original:
-                x_start = x_start.cpu().split(1, dim=0)
-                x_start = [img.squeeze(0) for img in x_start]
-                self._log_img(x_start, cls, title = "real samples")
+                x_start_list = x_start.cpu().split(1, dim=0)
+                x_start_list = [img.squeeze(0) for img in x_start_list]
+                self._log_img(x_start_list, cls, title = "real samples")
+                
+            if self.config.validation.log_concat:
+                for num_channel in range(concat.shape[1]):
+                    concat_list = concat[:, num_channel:num_channel+1, ...].cpu().split(1, dim=0)
+                    concat_list = [img.squeeze(0) for img in concat_list]
+                    self._log_img(concat_list, cls, title = f"concat samples - channel: {num_channel}")
             
             self._log_img(imgs, cls, title = "generated samples")
         
@@ -205,38 +211,48 @@ class DiffusionModule(bpu.BKhModule):
             imgs_to_log.append(img)
 
         if self.class_conditioned:
+            log_cls_indices = self.config.validation.log_cls_indices
             caption = []
             cls = cls.cpu().split(1, dim=0)
-            for i,c in enumerate(cls):
-                c = c.numpy().tolist()
+            for c in cls:
+                c = c.squeeze().numpy().tolist()
+                if log_cls_indices!=-1:
+                    c = [c[k] for k in log_cls_indices]
                 caption.append(f"Class: {c}")
             self.logger.log_image(key=title, images=imgs_to_log, caption=caption)
         else:
             self.logger.log_image(key=title, images=imgs_to_log)
 
     @torch.inference_mode()
-    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs=None, classifier_cond_scale=None, generator=None, start_denoise_step=None, post_process_fn=None, clip_denoised=True):            
+    def predict(self, init_noise, inference_protocol="DDPM", model_kwargs={}, classifier_cond_scale=0, generator=None, mask=None, original_image=None, start_denoise_step=None, post_process_fn=None, clip_denoised=True, eta=0.0):            
         init_noise = init_noise.to(device=self.device, dtype=self.dtype)
 
         for key in model_kwargs:
             if model_kwargs[key] is not None:
                 model_kwargs[key] = model_kwargs[key].to(device=self.device, dtype=self.dtype)
+
+        assert mask is None or (mask is not None and original_image is not None), "to use inpainting, both mask and original_image should be provided"
+        
+        if mask is not None:
+            mask = mask.to(device=self.device, dtype=self.dtype)
+            original_image = original_image.to(device=self.device, dtype=self.dtype)
+            assert mask.shape == init_noise.shape == original_image.shape, f"mask, init_noise and original_image should have the same shape, got {mask.shape}, {init_noise.shape} and {original_image.shape}"
         
         if inference_protocol == "DDPM":
             solver = DDPMSolver(self.diffusion)
         elif inference_protocol.startswith("DDIM"):
             num_steps = int(inference_protocol[len("DDIM"):])
-            solver = DDIMSolver(self.diffusion, num_steps=num_steps)
+            solver = DDIMSolver(self.diffusion, num_steps=num_steps, eta=eta)
         elif inference_protocol.startswith("IDDIM"):
             num_steps = int(inference_protocol[len("IDDIM"):])
-            solver = InverseDDIMSolver(self.diffusion, num_steps=num_steps)
-        elif inference_protocol.startswith("PNMD"):
-            num_steps = int(inference_protocol[len("PNMD"):])
-            solver = PNMDSolver(self.diffusion, num_steps=num_steps)
+            solver = InverseDDIMSolver(self.diffusion, num_steps=num_steps, eta=0.0)
+        elif inference_protocol.startswith("PLMS"):
+            num_steps = int(inference_protocol[len("PLMS"):])
+            solver = PLMSSolver(self.diffusion, num_steps=num_steps)
         elif inference_protocol == "DDPM_dump":
             solver = DDPMDumpSolver(self.diffusion)
         else:
-            raise ValueError(f"Unknown inference protocol {inference_protocol}.  Only DDPM, DDIM, IDDIM, PNMD, and DDPM_dump are supported")
+            raise ValueError(f"Unknown inference protocol {inference_protocol}, only DDPM, DDIM, IDDIM, PLMS are supported")
 
         imgs = solver.sample(
             self.model,
@@ -245,7 +261,9 @@ class DiffusionModule(bpu.BKhModule):
             cond_scale=classifier_cond_scale,
             model_kwargs=model_kwargs,
             clip_denoised=clip_denoised,
-            generator=generator
+            generator=generator,
+            mask=mask,
+            original_image=original_image,
         )
         
         imgs = imgs.split(1, dim=0)                 # [(1, C, H, W, (D))] * B
