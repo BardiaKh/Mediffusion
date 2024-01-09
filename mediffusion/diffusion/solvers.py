@@ -96,7 +96,7 @@ class DDPMSolver(SolverBase):
         else:
             indices = list(range(start_denoise_step))[::-1]
 
-        for i in tqdm(indices, desc="DDPM Sampling", leave=False):
+        for i in tqdm(indices, desc="DDPM Sampling", disable = not self.verbose):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=device)
 
@@ -195,7 +195,7 @@ class DDPMDumpSolver(SolverBase):
         else:
             indices = list(range(start_denoise_step))[::-1]
 
-        for i in tqdm(indices, desc="DDPM Sampling and dumping", leave=False):
+        for i in tqdm(indices, desc="DDPM Sampling and dumping", disable = not self.verbose):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=device)
             out = self._sample_fn(
@@ -348,7 +348,7 @@ class DDIMSolver(SolverBase):
         else:
             indices = list(range(start_denoise_step))[::-1]
 
-        for i in tqdm(indices, desc="DDIM Sampling", leave=False):
+        for i in tqdm(indices, desc="DDIM Sampling", disable = not self.verbose):
             t = self._get_t(i)            
             ts = t.expand(batch_size).to(device=device)
 
@@ -490,7 +490,7 @@ class InverseDDIMSolver(SolverBase):
         else:
             indices = list(range(start_denoise_step, self.num_timesteps))
 
-        for i in tqdm(indices, desc="Creating DDIM Noise", leave=False):
+        for i in tqdm(indices, desc="Creating DDIM Noise", disable = not self.verbose):
             t = self._get_t(i)
             ts = t.expand(batch_size).to(device=device)
             out = self._sample_fn(
@@ -670,7 +670,7 @@ class PLMSSolver(SolverBase):
 
         indices = indices[1:-1]
 
-        for i in tqdm(indices, desc="PRK Sampling", leave=False):
+        for i in tqdm(indices, desc="PRK Sampling", disable = not self.verbose):
             t = self._get_t(i)            
             ts = t.expand(batch_size).to(device=device)
             out = self._prk_sample_fn(
@@ -739,7 +739,7 @@ class PLMSSolver(SolverBase):
 
         old_eps = []
 
-        for i in tqdm(indices, desc="PLMS Sampling", leave=False):
+        for i in tqdm(indices, desc="PLMS Sampling", disable = not self.verbose):
             t = self._get_t(i)            
             ts = t.expand(batch_size).to(device=device)
 

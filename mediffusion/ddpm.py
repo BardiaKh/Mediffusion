@@ -7,7 +7,6 @@ import os
 import torch
 import numpy as np
 import bkh_pytorch_utils as bpu
-from tqdm.auto import tqdm
 import torchextractor as tx
 from functools import partial
 from omegaconf import OmegaConf
@@ -36,7 +35,7 @@ class DiffusionModule(bpu.BKhModule):
             val_ds=val_ds, 
             dl_workers=dl_workers, 
             batch_size=batch_size, 
-            val_batch_size=val_batch_size
+            val_batch_size=val_batch_size,
         )
 
         current_file_path = os.path.abspath(__file__)
@@ -70,6 +69,7 @@ class DiffusionModule(bpu.BKhModule):
             model_mean_type = ModelMeanType[self.config.diffusion.mean_type],
             model_var_type = ModelVarType[self.config.diffusion.var_type],
             loss_type = LossType[self.config.diffusion.loss_type],
+            verbose = self.config.diffusion.verbose,
         )
         
         self.model_input_shape = (
