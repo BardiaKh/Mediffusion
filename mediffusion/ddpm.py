@@ -1,5 +1,5 @@
 from .diffusion.base import GaussianDiffusionBase, ModelMeanType, ModelVarType, LossType
-from .diffusion.solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PLMSSolver
+from .diffusion.solvers import DDPMSolver, DDIMSolver, InverseDDIMSolver, PLMSSolver, DDPMDumpSolver
 from .utils.diffusion import get_named_beta_schedule, get_respaced_betas, enforce_zero_terminal_snr, UniformSampler
 from .utils.pl import get_obj_from_str
 from .models.unet import UNetModel
@@ -7,7 +7,6 @@ import os
 import torch
 import numpy as np
 import bkh_pytorch_utils as bpu
-from tqdm import tqdm
 import torchextractor as tx
 from functools import partial
 from omegaconf import OmegaConf
@@ -36,7 +35,7 @@ class DiffusionModule(bpu.BKhModule):
             val_ds=val_ds, 
             dl_workers=dl_workers, 
             batch_size=batch_size, 
-            val_batch_size=val_batch_size
+            val_batch_size=val_batch_size,
         )
 
         current_file_path = os.path.abspath(__file__)
@@ -47,7 +46,7 @@ class DiffusionModule(bpu.BKhModule):
         self.config = OmegaConf.merge(default_config, user_config)
 
         # add batch size to config just for logging purposes
-        OmegaConf.update(self.config, "batch_size", self.batch_size, merge=False)
+        OmegaConf.update(self.config, "batch_size", self.batch_size)
         
         self.lr = self.config.optimizer.lr
         self.optimizer_class = get_obj_from_str(self.config.optimizer.type)
@@ -70,6 +69,7 @@ class DiffusionModule(bpu.BKhModule):
             model_mean_type = ModelMeanType[self.config.diffusion.mean_type],
             model_var_type = ModelVarType[self.config.diffusion.var_type],
             loss_type = LossType[self.config.diffusion.loss_type],
+            verbose = self.config.diffusion.verbose,
         )
         
         self.model_input_shape = (
@@ -85,7 +85,7 @@ class DiffusionModule(bpu.BKhModule):
         self.concat_conditioned = False if self.config.model.concat_channels == 0  else True
         
         if not self.class_conditioned:
-            OmegaConf.update(self.config, "validation.classifier_cond_scale", 0, merge=False)
+            OmegaConf.update(self.config, "validation.classifier_cond_scale", 0)
 
         self.save_hyperparameters(self.config)
         
@@ -249,6 +249,8 @@ class DiffusionModule(bpu.BKhModule):
         elif inference_protocol.startswith("PLMS"):
             num_steps = int(inference_protocol[len("PLMS"):])
             solver = PLMSSolver(self.diffusion, num_steps=num_steps)
+        elif inference_protocol == "DDPM_dump":
+            solver = DDPMDumpSolver(self.diffusion)
         else:
             raise ValueError(f"Unknown inference protocol {inference_protocol}, only DDPM, DDIM, IDDIM, PLMS are supported")
 

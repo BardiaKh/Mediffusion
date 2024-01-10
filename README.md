@@ -226,6 +226,44 @@ The `img` is the generated output based on the model's inference (`C:H:W(:D)`). 
 
 **Note**: The model currently supports the following solvers: `DDPM`,`DDIM`,`IDDIM`(for inverse diffusion), and `PLMS`. As an example, `"PLMS100"` means using the `PLMS` solver for `100` steps. 
 
+#### 3.1 Outputting frames from diffusion steps for `DDPM` solver
+
+The solver `DDPM_dump` will output frames corresponding to each diffusion step for the first element in the batch.  (Use a batch size of 1 to output all elements.)  The name of the frames is `os.environ['DDPM_DUMP_OUTPUT_BASENAME']-II-TT.png`, where `II` is the batch element number and `TT` is the diffusion step number.  For each batch, change the value of `os.environ['DDPM_DUMP_OUTPUT_BASENAME']` to include the batch number to avoid overwrites.
+
+Here is code to convert the frames into a gif after the solver has completed:
+
+```python
+import glob
+from tqdm.auto import tqdm
+from PIL import Image
+
+# Output one gif from a collection of input frames
+def make_gif(
+    base_filename, 
+    input_format = "png",
+    output_format = "gif", 
+    duration = 100,
+):
+    image_glob      = f"{base_filename}*.{input_format}",
+    output_filename = f"{base_filename}.{output_format}", 
+
+    frames = []
+    image_filenames = list(reversed(sorted(glob.glob(image_glob))))
+    for image in tqdm(image_filenames):
+        frames.append(Image.open(image))
+
+    frames[0].save(
+        output_filename, 
+        format = output_format, 
+        append_images = frames,
+        save_all = True, 
+        duration = duration, 
+        loop = 0
+    )
+    
+make_gif(os.environ['DDPM_DUMP_OUTPUT_BASENAME'])
+```
+
 ## Tutorials
 
 For more hands-on tutorials on how to effectively use this package, please check the `tutorials` folder in the GitHub repository. These tutorials provide step-by-step instructions, Colab notebooks, and explanations to help you get started with the software.

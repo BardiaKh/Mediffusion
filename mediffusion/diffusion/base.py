@@ -54,6 +54,7 @@ class GaussianDiffusionBase(torch.nn.Module):
     :param rescale_timesteps: if True, pass floating point timesteps into the
                               model so that they are always scaled like in the
                               original paper (0 to 1000).
+    :param verbose: if True, prints more output.  if False, prints less.
     """
 
     def __init__(
@@ -65,8 +66,10 @@ class GaussianDiffusionBase(torch.nn.Module):
         rescale_timesteps=False,
         p2_gamma=0,
         p2_k=1,
+        verbose = True,
     ):
         super().__init__()
+        self.verbose = verbose
         self.model_mean_type = model_mean_type
         self.model_var_type = model_var_type
         self.loss_type = loss_type

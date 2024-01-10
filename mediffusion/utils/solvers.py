@@ -6,6 +6,7 @@ def extract_diffusion_args(diffusion):
     rescale_timesteps = diffusion.rescale_timesteps
     p2_gamma =diffusion.p2_gamma
     p2_k = diffusion.p2_k
+    verbose = diffusion.verbose
 
     kwargs = {
         "betas": betas,
@@ -15,6 +16,7 @@ def extract_diffusion_args(diffusion):
         "rescale_timesteps": rescale_timesteps,
         "p2_gamma": p2_gamma,
         "p2_k": p2_k,
+        "verbose": verbose,
     }
 
     return kwargs
