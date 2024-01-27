@@ -207,7 +207,10 @@ class DiffusionModule(bpu.BKhModule):
         imgs_to_log = []
         for i,img in enumerate(imgs):
             img = img.squeeze(0).numpy()
-            img = img.transpose(1,0)
+            if len(img.shape) == 3: # colored image
+                img = img.transpose(2,1,0)
+            else: # grayscale image
+                img = img.transpose(1,0)
             imgs_to_log.append(img)
 
         if self.class_conditioned:
