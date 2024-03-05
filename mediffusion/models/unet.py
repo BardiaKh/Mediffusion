@@ -365,7 +365,7 @@ class UNetModel(nn.Module):
             out = self(x, timesteps, cls=None, drop_cls_prob=0, cls_embed=cls_embed, concat=concat)
             logits, null_logits = torch.chunk(out, 2, dim=0)
             
-            ccf_g = logits + (logits - null_logits) * cond_scale
+            ccf_g = null_logits + (logits - null_logits) * cond_scale
             
             # Rescale classifier-free guidance (https://arxiv.org/abs/2305.08891)
             sigma_pos = torch.std(logits)
