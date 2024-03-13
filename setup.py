@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="mediffusion",
-    version="0.7.3",
+    version="0.7.1",
     author="Bardia Khosravi",
     author_email="bardiakhosravi95@gmail.com",
     description="Diffusion Models for Medical Imaging",
@@ -20,7 +20,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        "bkh-pytorch-utils>=0.9.2",
+        "bkh-pytorch-utils==0.9.3",
         "torchextractor==0.3.0",
         "OmegaConf==2.3.0",
     ],
