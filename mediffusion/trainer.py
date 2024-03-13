@@ -84,5 +84,5 @@ class Trainer:
         )
         return trainer
 
-    def fit(self, model):
-        self.trainer.fit(model)
+    def fit(self, *args, **kwargs):
+        self.trainer.fit(*args, **kwargs)
